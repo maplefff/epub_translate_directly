@@ -101,6 +101,7 @@ Vision OCR 讀不了公式（獨立公式整條消失、∇ 讀成 V）。改走
   裁出來的圖記有原書解析度，`print.image_natural: true` 讓它照原書尺寸印、不放大；
   `print.image_float: false` 讓圖排在原位、不浮動（浮到頁頂會壓在章名之上、離開緊接的推導；代價是放不下時頁尾留白）。
 - **公式要對照原頁抽查**：temml 全數轉換成功只代表語法對，不代表讀對。每 20 頁抽 1 頁，用 `page` 對照獨立公式與行內式；讀錯的依頁寫進 `source_fixes.yaml`。
+  要在瀏覽器看 MathML 實際顯示（解開譯本 EPUB、自製對照 HTML），檔案建在 `process/{書名}/OCR_review/`，用 `.claude/launch.json` 的 `ocr_review` 預覽：`http://localhost:8765/{書名}/OCR_review/…`（伺服器以 `process/` 為根）。這個目錄是暫存，可整個刪掉。
 - 這本書的經驗（Griffiths《Introduction to Electrodynamics》第三版）：
   - 專用 OCR 小模型都把草寫 𝓇 讀成 z、丟掉粗體向量，只有 Qwen3.5-27B 都對。比較見 `experiments/latex_ocr/REPORT.md`。
   - Qwen 的固定錯誤：草寫積分範圍 𝒱、𝒮 常讀成一般 V、S（同一條公式裡也會混用；42 條獨立公式），校成 `\mathcal{V}`、`\mathcal{S}`；雙箭頭張量 T⃡ 讀成 `\hat{T}`，校成 `\overleftrightarrow{\mathbf{T}}`。
@@ -296,6 +297,7 @@ epub_translate_directly/
     │   ├── glossary_report.json   glossary 的檢查報告
     │   ├── index_report.tsv   extract 的索引對位報告（每個頁碼對到哪一段、怎麼對的）
     │   └── print/{紙張[-色調][-binding]}/   pdf 的排版中間檔（content.json、config.json、book.typ）
+    ├── OCR_review/            Claude 目視檢查用的暫存檔（解開的 EPUB、公式對照 HTML…），可整個刪掉
     ├── 《中文書名 原文書名》.epub          build 產出
     ├── 《中文書名 原文書名》（B5）.pdf     pdf 產出，每種紙張一份
     ├── 《中文書名 原文書名》（B5 Light night）.pdf   加 --tone 的夜讀黃底版

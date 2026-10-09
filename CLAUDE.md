@@ -14,7 +14,9 @@
 - 改了 drafts：`merge` → `verify` → `build`；要 PDF 再 `pdf`。
 - `zh-lint` 只報告；確認是誤用才回 drafts 改。
 - 不要修改 `~/Program/epub_translate`、`~/Program/epub2print`、`~/Program/acsm`（舊專案，只讀；acsm 已在本專案重建成 `fetch`）。
-- `process/` 底下 `_` 開頭的目錄不是書（例如 `_system_prompts_backup_2026-10-01/`：合併分支時的設定備份；`_latex_ocr_test/`：OCR 模型比較的產物，`.claude/launch.json` 的 epubview 預覽它的 `epubview/`）。
+- `process/` 底下 `_` 開頭的目錄不是書（例如 `_system_prompts_backup_2026-10-01/`：合併分支時的設定備份；`_latex_ocr_test/`：OCR 模型比較的產物）。
+- 需要在瀏覽器目視檢查（解開的譯本 EPUB 看 MathML、公式與原頁對照的 HTML…）時，檔案一律建在 `process/{書名}/OCR_review/`，不要放到別處。
+  `.claude/launch.json` 的 `ocr_review` 以 `process/` 為根開靜態伺服器，網址是 `http://localhost:8765/{書名}/OCR_review/…`。這個目錄是暫存，可整個刪掉，不要放唯一的資料。
 - 原書已是中文、只要列印：原書 EPUB 放在 `《書名》.epub`，`source_file`、`output_file` 都指向它，直接 `pdf`；**不要跑 `build`**（會覆寫原書）。見 skill〈原書已是中文：只排版列印〉。
 - `adept/` 是 Adobe 授權（ACSM 領書用的私鑰）：不可刪、不可外流、不讀出內容、不進版控。`acsm-register` 會在 Adobe 建帳號，只能由使用者自己執行。
 - PDF／掃描書：`extract` 後先看抽取摘要與 `work/extract_report.json`，用 `page` 抽查原頁；**結構定案才開始翻**（之後改抽取設定會讓章節 id、段落切點位移，drafts 對不上）。
@@ -103,6 +105,7 @@ epub_translate_directly/
     │   ├── glossary_report.json   glossary 的檢查報告
     │   ├── index_report.tsv   extract 的索引對位報告（每個頁碼對到哪一段、怎麼對的）
     │   └── print/{紙張[-色調][-binding]}/   pdf 的排版中間檔（content.json、config.json、book.typ）
+    ├── OCR_review/            Claude 目視檢查用的暫存檔（解開的 EPUB、公式對照 HTML…），可整個刪掉
     ├── 《中文書名 原文書名》.epub          build 產出
     ├── 《中文書名 原文書名》（B5）.pdf     pdf 產出，每種紙張一份
     ├── 《中文書名 原文書名》（B5 Light night）.pdf   加 --tone 的夜讀黃底版

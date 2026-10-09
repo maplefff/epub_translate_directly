@@ -2,9 +2,9 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "epubview",
+      "name": "ocr_review",
       "runtimeExecutable": "/opt/homebrew/bin/python3.12",
-      "runtimeArgs": ["-m", "http.server", "8765", "--directory", "process/_latex_ocr_test/epubview"],
+      "runtimeArgs": ["-m", "http.server", "8765", "--directory", "process"],
       "port": 8765
     }
   ]
