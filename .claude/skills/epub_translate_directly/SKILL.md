@@ -83,11 +83,29 @@ Vision OCR 讀不了公式（獨立公式整條消失、∇ 讀成 V）。改走
   各有圖說、左右並排的圖合成圖列（`figrow`）：EPUB 用 flex、PDF 用 grid 並排，圖說仍是各自的段落，照常翻譯。
 - 抽取報告看三項：`figure_mismatch`（VLM 沒寫到的圖，位置依高度推定，用 `page` 確認）、`loop_stopped`（VLM 卡在目錄點線之類的重複，提前結束、內容可能不全）、`untagged_math`。
 - 獨立公式是 `math` 項目（不進譯稿，`dump` 不列）；行內式 `$…$` 留在段落裡，**譯文照抄 `$…$`，一字不改**。公式讀錯用 `drafts/source_fixes.yaml` 改 LaTeX。
+- VLM 偶爾把多行推導寫成沒包 `$$` 的 `\begin{align*}…\end{align*}`：`extract` 自動包成獨立公式（align→aligned、gather→gathered，`\tag` 取出當式號），不必手動校。
+- **公式裡的英文說明**（`\text{when}`、`\text{(Gauss's law)}`）不在譯稿裡，寫進 `drafts/math_text.yaml`，build 時代換（EPUB 的 MathML 與 PDF 都套用）：
+  ```yaml
+  text:    # 一般位置的 \text／\textrm／\textbf／\textit／\mbox{…}
+    "when": "當"
+    "(Gauss's law),": "（高斯定律），"
+  sub:     # 前面是 _ 或 ^ 的（上下標裡的片語）
+    "all space": "全空間"
+  whole:   # 語序和中文不同，整條公式改寫：原文 TeX → 譯好的 TeX
+    '\mathbf{w}(t) \equiv \text{position of } q \text{ at time } t.': '\mathbf{w}(t) \equiv q \text{ 在時刻 } t \text{ 的位置。}'
+  ```
+  key 是大括號內去掉前後空白後的原文，必須完全相同；前後空白照原文保留（決定和符號的間距）。沒列的照原文——符號名稱的下標（`E_{\text{above}}`、`Q_{\text{enc}}`）、單位、Re、SI、編號 (ii) 都不要列。全書譯完後，把含 `\text` 的獨立公式逐條看上下文再訂。
 - 環境：`.venv-vlm`（requirements-vlm.txt）、`npm install --prefix epubtrans/output/js`（temml）。EPUB 的公式是 MathML，嵌入 STIX Two Math。
 - PDF：公式由 Typst 的 mitex 排（`@preview/mitex:0.2.7`，第一次會下載）；每條先單獨試排，排不出來的印成紅色原始碼並列出（改 `source_fixes.yaml`）。含公式的頁不量行距。
+  比版心寬的獨立公式自動處理：縮到 90%（`math.typ` 的 `eq-min-scale`）以內放得下就微縮、式號留同一行；否則公式獨占一行、式號移到下一行靠右。方程組、`\left. … \right\}` 的括號對準數學軸，上下對稱。
   裁出來的圖記有原書解析度，`print.image_natural: true` 讓它照原書尺寸印、不放大；
   `print.image_float: false` 讓圖排在原位、不浮動（浮到頁頂會壓在章名之上、離開緊接的推導；代價是放不下時頁尾留白）。
-- 這本書的經驗（Griffiths《Introduction to Electrodynamics》第三版）：專用 OCR 小模型都把草寫 𝓇 讀成 z、丟掉粗體向量，只有 Qwen3.5-27B 都對。比較見 `experiments/latex_ocr/REPORT.md`。
+- **公式要對照原頁抽查**：temml 全數轉換成功只代表語法對，不代表讀對。每 20 頁抽 1 頁，用 `page` 對照獨立公式與行內式；讀錯的依頁寫進 `source_fixes.yaml`。
+- 這本書的經驗（Griffiths《Introduction to Electrodynamics》第三版）：
+  - 專用 OCR 小模型都把草寫 𝓇 讀成 z、丟掉粗體向量，只有 Qwen3.5-27B 都對。比較見 `experiments/latex_ocr/REPORT.md`。
+  - Qwen 的固定錯誤：草寫積分範圍 𝒱、𝒮 常讀成一般 V、S（同一條公式裡也會混用；42 條獨立公式），校成 `\mathcal{V}`、`\mathcal{S}`；雙箭頭張量 T⃡ 讀成 `\hat{T}`，校成 `\overleftrightarrow{\mathbf{T}}`。
+  - 原書加框的重要式常漏掉 `\boxed`（1,132 條有式號的只留 18 個框），只影響強調，未處理。
+  - 習題前的「!」「•」是原書頁邊記號，抽取後會貼在題號前面。
 
 #### 接著（各種格式共通）
 - 依抽取結果調 `system_prompts.yaml`，改完重跑 extract：
@@ -224,7 +242,9 @@ epub_translate_directly/
 │   ├── source/               輸入端：原書 → work/book.json（extract 依原檔格式分派）
 │   │   ├── import_epub.py    EPUB → book.json
 │   │   ├── import_pdf/       PDF → book.json：textlayer.py（讀文字層）、ocr.py（掃描頁）、
-│   │   │                     structure.py（書眉頁碼、註腳、段落、斷字、切章）
+│   │   │                     structure.py（書眉頁碼、註腳、段落、斷字、切章）、
+│   │   │                     vlm_worker.py（掃描數學書的整頁 VLM OCR，在 .venv-vlm 跑）、vlm.py（讀它的快取 → book.json；
+│   │   │                     VLM 沒包 $$ 的 align／equation／gather／multline 自動包成獨立公式，align→aligned）
 │   │   ├── fetch_acsm/       ACSM 領書並解密成 EPUB（fetch；移植自 GPLv3 的 acsm-calibre-plugin 與 DeDRM_tools）
 │   │   ├── book_index.py     書末索引：原書頁碼對回段落（EPUB 抽取時解析；build 產生連結、pdf 算譯本頁碼）
 │   │   └── terms.py          專名候選清單
@@ -232,21 +252,27 @@ epub_translate_directly/
 │   ├── qa/                   譯文檢查：verify.py（漏譯）、zh_lint.py（台灣用語）、glossary.py（譯名一致）、review.py（譯後審閱）
 │   ├── output/               輸出端
 │   │   ├── export_epub.py    book.json ＋ translations.json → 譯本 EPUB（build）
+│   │   ├── math.py、js/      LaTeX 公式 → MathML（temml，Node）；EPUB 嵌入 STIX Two Math；
+│   │   │                     localize() 依 drafts/math_text.yaml 把 \text{…} 中文化（譯過的 TeX 寫進 annotation，PDF 由此取回）
 │   │   └── export_pdf/       譯本 EPUB → 可列印 PDF（pdf）
 │   │       ├── pipeline.py   串起流程、呼叫 Typst
 │   │       ├── content/      read_translated_epub.py（讀譯本 EPUB）、prepare.py（整理成排版用書稿）
 │   │       ├── layout.py     依紙張算版型
-│   │       ├── typst/book.typ   Typst 排版模板
+│   │       ├── typst/book.typ   Typst 排版模板；typst/math.typ：公式（mitex 排 LaTeX、行內式、獨立公式＋編號；
+│   │       │                    aligned／array 對準數學軸；超出版心的公式先縮到 eq-min-scale=90%，再不夠就式號換到下一行）
+│   │       ├── mathcheck.py  公式逐條試排（mitex 一條出錯整本編不出來；排不出的照原樣印）
 │   │       └── pagecheck.py  逐頁驗證
 │   └── settings/             全域設定（可手動調整）
 │       ├── zh_tw_lint.yaml   台灣用語檢查規則
 │       ├── print_profile.yaml   PDF 排版預設、自動版型參數、夜讀色調
+│       ├── vlm_ocr_prompt.txt   vlm-ocr 給 VLM 的轉寫提示詞（改了會讓快取全部重做）
 │       ├── system_prompts.template.yaml   init 產生書本設定用的範本
 │       └── system_prompts.template.pdf.yaml   原檔是 PDF 時 init 附上的 pdf: 設定說明
-├── tests/                    test_naming.py、test_fetch_acsm.py（離線）、test_import_pdf.py；
+├── tests/                    test_naming.py、test_fetch_acsm.py（離線）、test_import_pdf.py、test_vlm.py、test_layout.py；
 │                             fixtures/：make_test_pdfs.py 與兩種英文版面的 Typst 模板（產生 PDF 測試書）
+├── experiments/              latex_ocr/（OCR 模型比較與報告）、layout_compare/（版面模型比較）
 ├── adept/                    Adobe 授權檔（device.xml、activation.xml、devicesalt），ACSM 領書用；不進版控
-└── process/{書名}/           一本書一個目錄（`_` 開頭的不是書，是備份之類）
+└── process/{書名}/           一本書一個目錄（`_` 開頭的不是書，是備份之類）；整個目錄不進版控
     ├── 原檔.epub／.pdf        原書（輸入）
     ├── 原書名.acsm            原書是 ACSM 時的領書憑證；fetch 把它領成 {原書名}.epub
     ├── system_prompts.yaml    該書設定：抽取規則、章名覆寫、EPUB metadata；print: 放 PDF 書名頁資訊
@@ -255,6 +281,7 @@ epub_translate_directly/
     │   ├── titles.json        章節標題譯文
     │   ├── review_log.jsonl   review／revise 的審閱紀錄
     │   ├── source_fixes.yaml  原文校正（OCR 誤字、原書錯字），extract 時套用
+    │   ├── math_text.yaml     掃描數學書：公式裡英文說明的譯名（text:／sub:／whole:），build 時套用
     │   ├── glossary.yaml      固定譯名表（glossary 據此檢查全書；翻譯前必讀）
     │   └── translation_notes.md   該書語體、譯例、不可洩底的線索、進度（翻譯前必讀）
     ├── work/                  程式產生的，可整個刪掉重建
