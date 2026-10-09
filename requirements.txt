@@ -1,0 +1,10 @@
+ebooklib>=0.18        # 組裝輸出的 EPUB
+beautifulsoup4>=4.12  # 解析 EPUB 內的 XHTML
+lxml>=5.0             # bs4 的容錯 parser；ebooklib 的硬相依
+PyYAML>=6.0           # book.yaml / zh_tw_lint.yaml / print_profile.yaml
+pypdf>=4.0            # PDF 逐頁驗證
+pycryptodome>=3.18    # ACSM：ADEPT 協定與 EPUB 解密（AES、RSA）
+cryptography>=42      # ACSM：解析 Adobe 授權裡的 PKCS#12
+pymupdf>=1.24         # PDF 原檔：讀文字層、頁面點陣化（AGPL，個人使用）
+pyobjc-framework-Vision>=10; sys_platform == "darwin"   # 掃描 PDF：macOS 內建的 Vision 文字辨識
+# PDF 排版引擎 Typst 不是 Python 套件：brew install typst（實測 0.15.1）

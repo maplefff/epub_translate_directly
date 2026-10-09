@@ -1,0 +1,9 @@
+{
+  "name": "epubtrans-math",
+  "private": true,
+  "description": "LaTeX → MathML（EPUB 用）；pip 管不到，npm install 在這個目錄",
+  "type": "module",
+  "dependencies": {
+    "temml": "^0.11.0"
+  }
+}

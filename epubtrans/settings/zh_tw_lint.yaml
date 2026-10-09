@@ -1,0 +1,66 @@
+# 台灣用語檢查規則 —— `python -m epubtrans zh-lint "書名"` 用，只報告不改稿。
+# 欄位：find / replace 必填；regex: true 時 find 為正規表示式；note 是給人看的說明。
+# 命中不等於錯：逐一判斷，確認是陸／港用語才回 drafts/ 改。
+rules:
+  # 研究/證據/數據 + 「表明」是陸式搭配，台灣寫「顯示」。
+  # （「他表明立場」這類以人為主語的用法是正確中文，故用前置詞限定，不全域替換。）
+  - find: '(研究|證據|實驗|調查|分析|發現|數據|資料|結果|統計|報告|）)(也|都|均|則|亦)?表明'
+    replace: '\1\2顯示'
+    regex: true
+    note: 研究表明 → 研究顯示
+  - find: '似乎表明'
+    replace: '似乎顯示'
+    note: 陸式搭配
+  - find: '向我們表明'
+    replace: '向我們顯示'
+
+  - find: '水平(?!線|面|方向|軸|儀|思考|分割|橫|爬|移|飛|延|掃|切|射)'
+    replace: '程度'
+    regex: true
+    note: 表示 level/degree 時台灣用「程度」「水準」，「水平」限幾何方向。
+          負向界定要連「水平橫掠」「水平爬行」這種動詞用法一起圈掉 ——
+          Non-Stop 實測這兩處若換成「程度」會把描寫刀刃走向的句子改壞。
+  - find: '質量(?!守恆|數|比|中心)'
+    replace: '品質'
+    regex: true
+    note: quality；「質量」在台灣是物理學的 mass
+  - find: '激活'
+    replace: '活化'
+    note: activate
+  - find: '小劑量'
+    replace: '少量'
+    note: in small doses
+  - find: '甚麼'
+    replace: '什麼'
+    note: 港式寫法
+  - find: '買單'
+    replace: '結帳'
+    note: 粵語借詞
+
+  # 以下為預防性規則
+  - find: '信息'
+    replace: '資訊'
+  - find: '視頻'
+    replace: '影片'
+  - find: '軟件'
+    replace: '軟體'
+  - find: '硬件'
+    replace: '硬體'
+  - find: '屏幕'
+    replace: '螢幕'
+  - find: '默認'
+    replace: '預設'
+  - find: '短信'
+    replace: '簡訊'
+  - find: '概率'
+    replace: '機率'
+  - find: '渠道'
+    replace: '管道'
+  - find: '打印'
+    replace: '列印'
+  - find: '人工智能'
+    replace: '人工智慧'
+  - find: '互聯網'
+    replace: '網際網路'
+  - find: '一模二樣'
+    replace: '一模一樣'

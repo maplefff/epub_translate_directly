@@ -1,0 +1,56 @@
+# PDF 排版的全域預設。每本書可在 process/{書名}/system_prompts.yaml 的 print: 區塊覆寫任何一項，
+# 命令列（--body-size 等）再覆寫書本設定。邊界與字級由 layout 依紙張自動算出。
+
+cjk_font: Songti TC        # 宋體（300/400/700 三個字重）；`python -m epubtrans fonts` 列出可用字型
+latin_font: Charter        # 西文襯線，字重與 x 高和宋體相配
+
+leading_ratio: 0.7         # 行間空隙 ÷ 字級。行框固定 1em，所以行距＝1.7 倍字級
+chapter_align: center
+chapter_top_ratio: 0.16    # 章首頁上方留白占版心高度的比例
+part_top_ratio: 0.34       # 部扉頁上方留白
+image_width: 78            # 圖片寬度占版心的百分比
+image_max_height: 55       # 圖片高度上限占版心高度的百分比（直式窄圖依高度縮，不再依寬度放大）
+image_float: true          # 圖浮動到頁頂或頁底、正文排滿；false＝排在原位（掃描數學書：圖緊跟推導，浮到頁頂會跑到章名之上）
+fine_print_chars: 400      # 前後附件的排印行超過這個字數就用小字密排（版權頁）
+
+toc: true
+use_cover: false           # 封面 JPEG 是螢幕解析度，印出來會糊；預設用排版的書名頁
+cjk_latin_spacing: true    # 中西文之間自動插 1/4 em（手動空格已在 prepare 剝掉）
+chapter_recto: false       # true 才強制每章從右頁起（費紙）
+binding: false             # false＝左右邊界等寬（散頁閱讀）；true＝裝訂版，內側比外側寬、左右頁鏡像（--binding）
+
+title: ""                  # 書名頁與書眉；留空取 EPUB 的 dc:title
+subtitle: ""
+author: ""
+imprint: ""                # 書名頁底部的一行小字
+
+# ── 自動版型的參數（見 epubtrans/output/export_pdf/layout.py 的說明）──────────────────
+layout:
+  inside_frac: 0.12        # 內側邊界 ÷ 紙寬（裝訂側，比外側寬）
+  outside_frac: 0.095      # 外側邊界 ÷ 紙寬；binding: false 時左右都取兩者平均，版心寬不變
+  top_frac: 0.078          # 上邊界 ÷ 紙高（書眉在這裡面）
+  bottom_frac: 0.086       # 下邊界 ÷ 紙高（頁碼在這裡面）
+  max_chars: 38            # 每行字數上限；超過就放大字級，仍超過就加寬邊界
+  base_pt: 10.5            # 基準字級：A5（√面積 176.3mm）用 10.5pt，
+  base_sqrt_area: 176.3    #   每多 1mm 的 √面積加 0.0204pt（以 A5→A4＝10.5→12pt 校準）
+  pt_per_mm: 0.0204
+
+# 各級字級 ＝ 正文字級 × 比例（取原本 ISO-B5 與 A4 手調值的平均）
+size_ratio:
+  title_size: 2.7
+  part_size: 2.08
+  chapter_size: 1.52
+  sub_size: 1.26
+  head_size: 0.8
+  folio_size: 0.85
+  chapter_gap: 2.7
+
+# ── 夜讀色調（python -m epubtrans pdf --tone light …）──────────────────────────────
+# 黃色底紙＋暖黑字，壓低白紙的刺眼與藍光感；由淺到深。label 會接在檔名的紙張後面：
+# 《不停 Non-Stop》（B5 Light night）.pdf。字色都比純黑淡一點，對比仍在 8:1 以上。
+tones:
+  light: {label: Light night, page: "#FBF4DF", text: "#2A2418"}   # 象牙白，最接近一般書紙
+  cream: {label: Cream night, page: "#F6EBCB", text: "#2A2418"}   # 奶油黃
+  wheat: {label: Wheat night, page: "#F0DFAE", text: "#2B2317"}   # 麥稈黃
+  honey: {label: Honey night, page: "#E8D08E", text: "#261E12"}   # 蜂蜜黃
+  amber: {label: Amber night, page: "#DDBE70", text: "#221A0F"}   # 琥珀黃，最暗、最不刺眼

@@ -1,0 +1,96 @@
+"""譯後審閱：原文與譯文逐段並排、定點修改譯稿、記錄審閱進度。
+
+為什麼要有這一關：對位檢查、verify、zh-lint 都是機械檢查，抓不到語意錯誤。
+例如 “You can kill him and ask questions after.” 被譯成「你可以先殺了他再問問題」，
+多出的「先」和前文「先叫他說話」互相矛盾，只有對照原文逐句讀才看得出來。
+
+改譯稿一律走 revise，不手動 sed：它要求舊字串在該段裡恰好出現一次才替換，
+並把每一處改動（原句、新句、理由）寫進 drafts/review_log.jsonl。
+"""
+import os, json, glob, datetime
+from ..core import store
+from ..translate import drafts as D
+
+
+def _log_path(cfg):
+    return os.path.join(cfg.drafts, "review_log.jsonl")
+
+
+def _log(cfg):
+    p = _log_path(cfg)
+    return [json.loads(l) for l in open(p, encoding="utf-8")] if os.path.exists(p) else []
+
+
+def _append(cfg, rec):
+    rec = {"at": datetime.datetime.now().isoformat(timespec="seconds"), **rec}
+    with open(_log_path(cfg), "a", encoding="utf-8") as f:
+        f.write(json.dumps(rec, ensure_ascii=False) + "\n")
+
+
+def _rows_with_origin(cfg, cid):
+    """[(檔案, 檔內序號, row)…]，把分段檔接成一章。"""
+    files = D._chapter_files(cfg).get(cid)
+    if not files:
+        raise SystemExit(f"沒有 {cid} 的譯稿")
+    out = []
+    for p in files:
+        for i, row in enumerate(json.load(open(p, encoding="utf-8"))):
+            out.append((p, i, row))
+    return out
+
+
+def show(cfg, cid, lo=0, hi=None):
+    book = store.load_book(cfg)
+    ch = next((c for c in book["chapters"] if c["id"] == cid), None)
+    if ch is None:
+        raise SystemExit(f"book.json 沒有章節 {cid}")
+    items = D._text_items(ch)
+    rows = _rows_with_origin(cfg, cid)
+    if len(rows) != len(items):
+        raise SystemExit(f"{cid}: 譯稿 {len(rows)} 筆 ≠ 原文 {len(items)} 筆，先修對位")
+    for i, (it, (_, _, row)) in enumerate(zip(items, rows)):
+        if i < lo or (hi is not None and i >= hi):
+            continue
+        zh = it["text"] if row[1] is None else row[1]
+        print(f"[{i}] {it['text']}\n     {zh}\n")
+
+
+def revise(cfg, cid, idx, old, new, why):
+    rows = _rows_with_origin(cfg, cid)
+    if not 0 <= idx < len(rows):
+        raise SystemExit(f"{cid} 沒有第 {idx} 段（共 {len(rows)} 段）")
+    path, j, row = rows[idx]
+    zh = row[1] or ""
+    n = zh.count(old)
+    if n != 1:
+        raise SystemExit(f"{cid}[{idx}]：舊字串出現 {n} 次（必須恰好 1 次），未修改\n  段落：{zh}")
+    data = json.load(open(path, encoding="utf-8"))
+    data[j][1] = zh.replace(old, new)
+    with open(path, "w", encoding="utf-8") as f:
+        f.write("[\n" + ",\n".join(json.dumps(r, ensure_ascii=False) for r in data) + "\n]\n")
+    _append(cfg, {"cid": cid, "idx": idx, "old": old, "new": new, "why": why})
+    print(f"{cid}[{idx}] 已修改：{old} → {new}")
+
+
+def done(cfg, cid, note=""):
+    _append(cfg, {"cid": cid, "done": True, "note": note})
+    n = sum(1 for r in _log(cfg) if r.get("cid") == cid and "old" in r)
+    print(f"{cid} 標記為已審（本章修改 {n} 處）")
+
+
+def progress(cfg):
+    book = store.load_book(cfg)
+    log = _log(cfg)
+    fixed, reviewed = {}, set()
+    for r in log:
+        if r.get("done"):
+            reviewed.add(r["cid"])
+        elif "old" in r:
+            fixed[r["cid"]] = fixed.get(r["cid"], 0) + 1
+    for c in book["chapters"]:
+        items = D._text_items(c)
+        if not items:
+            continue
+        mark = "✓" if c["id"] in reviewed else "·"
+        print(f"{mark} {c['id']}\t{len(items)} 段\t修改 {fixed.get(c['id'], 0)} 處")
+    print(f"\n已審 {len(reviewed)} 章，修改共 {sum(fixed.values())} 處（紀錄：{_log_path(cfg)}）")

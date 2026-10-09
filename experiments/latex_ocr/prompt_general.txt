@@ -1,0 +1,8 @@
+Transcribe this textbook page into Markdown with LaTeX math. Rules:
+- Skip the running header and page number.
+- Headings: "#" for sections like "1.5 ...", "##" for "1.5.1 ...".
+- Inline math in $...$, display equations in $$...$$; put equation numbers as \tag{1.83} inside the display.
+- Keep typography exactly: bold vectors as \mathbf{v}, unit vectors as \hat{\mathbf{x}}, bold Greek as \boldsymbol{\phi}, italic words as *word*, bold words as **word**.
+- This book uses a special script letter "script r" (looks like a cursive r, used for the separation vector). Write it as \mathscr{r}, bold as \boldsymbol{\mathscr{r}}. Do not confuse it with z.
+- For figures write only their caption, e.g. "Figure 1.43". Tables as Markdown tables.
+- Output only the transcription.

@@ -1,0 +1,12 @@
+.venv/
+.venv-vlm/
+__pycache__/
+*.pyc
+.DS_Store
+*.epub
+*.pdf
+# 書本目錄（原檔、system_prompts.yaml、drafts、work、產出）全部不進版控
+process/
+# Adobe 授權檔（ACSM 領書用的私鑰），絕不能進版控
+adept/
+node_modules/

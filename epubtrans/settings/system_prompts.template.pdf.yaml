@@ -1,0 +1,21 @@
+
+# 原檔是 PDF 時的抽取設定（init 偵測到 PDF 才附上）。沒寫的項目用預設值，
+# 預設值見 epubtrans/source/import_pdf/__init__.py 的 DEFAULTS。改完重跑 extract。
+pdf:
+  skip_pages: []        # 略過的頁（PDF 頁碼，從 1 起算），例：[1, 2, "5-8"]
+  chapters: []          # 手動切章，優先於書籤：[{page: 12, title: "Chapter One", level: 1}]
+  # mode: auto          # auto：逐頁判斷；text：只用文字層；ocr：全部重做 OCR（文字層品質差時）
+  # cover_page: auto    # auto：第 1 頁幾乎只有圖就當封面；也可寫頁碼，或 null
+  # columns: 1          # 雙欄排版寫 2
+  # use_outline: true   # 有 PDF 書籤就依書籤切章
+  # chapter_levels: 2   # 書籤前幾層當章節，更深的不切
+  # heading_sizes: {}   # 沒有書籤時依字級切章；自動判斷不對就指定，例：{22: 1, 15: 2}（字級 pt → 層級，0＝不切）
+  # footnotes: end      # end：收到該章結尾的 Notes；drop：刪掉
+  # footnote_marks: "*†"   # 只認這些標記開頭的註腳（頁底的編號清單、圖片出處被誤認成註腳時）
+  # skip_toc_pages: true   # 略過原書的目錄頁與索引頁
+  # ocr_languages: [en-US]   # 掃描頁的 OCR 語言；省略時依 book.source_lang
+  # ocr_dpi: 300        # OCR 的點陣化解析度上限（掃描頁用原圖解析度）
+  # plate_pages: []    # 掃描書的圖版頁：「Note(s):」以上整片當一張圖（圖表多、自動找圖切不好時），例：["195-204"]
+  # framed_figures: false   # 掃描書裡有框線的表格整塊當圖（框起來的引文不算）
+  # figure_boxes: {}    # 自動找圖失敗的頁，手動指定插圖範圍（PDF 點，x0 y0 x1 y1）：{286: [[117, 212, 512, 458]]}
+  # drop_lines: []      # OCR 雜訊行（透印、污漬讀成的亂碼），分段前拿掉：[{page: 151, text: "patre the"}]

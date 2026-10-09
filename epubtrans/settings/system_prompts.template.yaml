@@ -1,0 +1,21 @@
+# {name} 的書本設定（extract / build 用）。譯例與譯名表寫在 drafts/translation_notes.md。
+book:
+  title: "{name}"
+  title_zh: ""                 # 譯本書名；可含原文附註，如「心之地圖（Atlas of the Heart）」，檔名會砍掉附註
+  author: ""
+  source_lang: "English"
+  target_lang: "zh-TW"
+  source_file: "{src}"         # 原檔（.epub／.pdf／.acsm）；留空＝自動找目錄裡唯一的一個
+  identifier: "epubtrans-{name}-zh-TW"   # 建好就別改：閱讀器靠它認書（閱讀進度、劃線），書本目錄改名也照舊
+  description: ""
+  translator: ""               # 翻譯模型的名稱，例 "Claude Opus 5.5"；下面 colophon 的 {translator} 由此代入
+  title_overrides: {}          # 同名章節標題按章節 id 指定譯名，例：{c008: "第一章"}
+  colophon: |
+    本書中文譯本由 {translator} 翻譯，僅供個人閱讀研究使用。
+
+extract:
+  heading_levels: {}           # 例：{h2: 1, h2b: 2}  這個 class 的標題當第幾層章節（會切章）
+  para_headings: []             # 例：[H1]  這個 class 的 <p> 當章內小標（不切章）
+  skip_files: []                # spine 檔名含這些字串就跳過（例：原書自帶的 CONTENTS 頁）
+  # chapter_levels: {}         # 按章節 id 覆寫層級，例：{c008: 2}
+  # title_items: {}            # 章名在正文開頭幾段 <p> 時，按章節 id 指定前幾段併成章名，例：{c008: 2}
