@@ -9,7 +9,7 @@
   - 注號：譯稿用上標數字（¹），EPUB 轉 <sup>，PDF 由 Typst super 排，行距不能被撐開。
   - 半書名頁的章名就是書名：PDF 的逐頁驗證不能把排版產生的書名頁當成它的起始頁。
   - 章內小標在多頁的章中間：不能讓那一頁沒有書眉、也不能變成後面各頁的書眉，
-    小標後的正文要回到行距格線上；正文頁的上標注號不能被量成一行。
+    小標後的正文要回到行距格線上（小標長到換行時，行與行之間也一樣）；正文頁的上標注號不能被量成一行。
   - 內文插圖：PDF 端要找得到 EPUB 裡的圖（路徑相對於 XHTML，不是 OPF）。
   - 圖說跟著圖：EPUB 放進同一個 <figure>，PDF 排在同一頁；直式窄圖不能依寬度放大到
     超出版心（House of Debt 的圖 2.2 被放到 316mm 高，上下被切）。
@@ -160,9 +160,10 @@ def main():
         print("merge / build")
         titles = [["Book", "書"], ["1 : One", "第一章　一"], ["PART I Busted", "第一部　崩盤"],
                   ["2 : Two", "第二章　二"], ["3 : Three", "第三章　三"]]
+        LONG_SUB = "小標" + "長到在版心裡換行的題目" * 4   # 多行小標的行距也要等於正文格線
         rows = {"c002": [["Debt", ZH + "¹"]] * 3,
                 "c004": [["Debt", ZH + "²"]] * 2 + [["Where", "支出在哪裡下滑³"]] + [["Debt", ZH]] * 30,
-                "c005": [["Debt", ZH]] * 40 + [["Subhead", "小標"]] + [["Figure", "圖 3.2：直式窄圖"]]
+                "c005": [["Debt", ZH]] * 40 + [["Subhead", LONG_SUB]] + [["Figure", "圖 3.2：直式窄圖"]]
                         + [["Debt", ZH + "⁴"]] * 30 + [["Figure", "圖 3.1：債務"]]
                         + [["Figure", "圖 3.3 左"], ["Figure", "圖 3.4 右"]]}
         json.dump(titles, open(os.path.join(d, "drafts", "titles.json"), "w", encoding="utf-8"), ensure_ascii=False)

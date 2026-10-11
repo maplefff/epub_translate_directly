@@ -146,9 +146,12 @@
 // 小標之後的正文才會回到格線上。第一版給 lead × 1.8／0.9，量出來是 28.6／19.1pt
 // （常態 19.6），小標後面整頁的行都偏離格線 8.5pt。行框上下緣固定為 0.88／0.12 em
 // （見 set text），所以間距可以精確算出來。
+// 小標長到換行時（《與焦慮和解》自我檢測的題目），行與行之間也要剛好一格正文行距：
+// 照預設的 leading，行距是小標字級＋lead（A4 量出 24.8pt，常態 21.2），
+// 每多一行，後面整頁就偏離格線 3.6pt。
 #let sub = flat(cfg.sub_size)
 #show heading.where(level: 3): it => {
-  set par(first-line-indent: 0em, justify: false)
+  set par(first-line-indent: 0em, justify: false, leading: bs + lead - sub)
   block(width: 100%, above: 2 * (bs + lead) - 0.12 * bs - 0.88 * sub,
         below: bs + lead - 0.12 * sub - 0.88 * bs)[
     #text(size: flat(cfg.sub_size), weight: "bold")[#it.body]
