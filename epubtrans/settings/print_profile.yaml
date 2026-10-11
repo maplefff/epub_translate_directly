@@ -17,7 +17,7 @@ toc: true
 use_cover: false           # 封面 JPEG 是螢幕解析度，印出來會糊；預設用排版的書名頁
 cjk_latin_spacing: true    # 中西文之間自動插 1/4 em（手動空格已在 prepare 剝掉）
 chapter_recto: false       # true 才強制每章從右頁起（費紙）
-binding: false             # false＝左右邊界等寬（散頁閱讀）；true＝裝訂版，內側比外側寬、左右頁鏡像（--binding）
+style: book                # book＝書本式，內側比外側寬、左右頁鏡像（裝訂、釘書針都吃內側）；document＝左右等寬（--document）
 
 title: ""                  # 書名頁與書眉；留空取 EPUB 的 dc:title
 subtitle: ""
@@ -27,7 +27,7 @@ imprint: ""                # 書名頁底部的一行小字
 # ── 自動版型的參數（見 epubtrans/output/export_pdf/layout.py 的說明）──────────────────
 layout:
   inside_frac: 0.12        # 內側邊界 ÷ 紙寬（裝訂側，比外側寬）
-  outside_frac: 0.095      # 外側邊界 ÷ 紙寬；binding: false 時左右都取兩者平均，版心寬不變
+  outside_frac: 0.095      # 外側邊界 ÷ 紙寬；style: document 時左右都取兩者平均，版心寬不變
   top_frac: 0.078          # 上邊界 ÷ 紙高（書眉在這裡面）
   bottom_frac: 0.086       # 下邊界 ÷ 紙高（頁碼在這裡面）
   max_chars: 38            # 每行字數上限；超過就放大字級，仍超過就加寬邊界

@@ -243,18 +243,18 @@ def main():
             cap_pages = {i for i, t in enumerate(pages, 1) if re.search(r"圖\s*3\.[12]：", t)}
             check("圖說和圖在同一頁", cap_pages and cap_pages <= img_pages, (cap_pages, img_pages))
         side = sides(pdf)
-        check("預設左右邊界等寬（散頁閱讀）", side and all(abs(d) < 0.3 for _, d in side), side)
+        check("預設書本式：奇數頁左寬、偶數頁右寬（內側在裝訂邊）",
+              side and all((d > 1.5) if n % 2 else (d < -1.5) for n, d in side), side)
         try:
-            pipeline.run(cfg, "b5", {"binding": True}, None)
+            pipeline.run(cfg, "b5", {"style": "document"}, None)
             ok = True
         except SystemExit:
             ok = False
-        bound = pipeline.paths(cfg, "b5", binding=True)[0]
-        check("--binding 另出一份（B5 裝訂）且逐頁驗證通過", ok and bound.endswith("（B5 裝訂）.pdf")
-              and os.path.exists(pdf), bound)
-        side = sides(bound)
-        check("--binding：奇數頁左寬、偶數頁右寬（內側在裝訂邊）",
-              side and all((d > 1.5) if n % 2 else (d < -1.5) for n, d in side), side)
+        flat = pipeline.paths(cfg, "b5", style="document")[0]
+        check("--document 另出一份（B5 Document）且逐頁驗證通過", ok and flat.endswith("（B5 Document）.pdf")
+              and os.path.exists(pdf), flat)
+        side = sides(flat)
+        check("--document：左右邊界等寬", side and all(abs(d) < 0.3 for _, d in side), side)
         try:
             pipeline.run(cfg, "b5", {"image_float": False}, None)
             ok = True

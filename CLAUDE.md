@@ -37,9 +37,9 @@
 | `glossary [--term X] [--all]` | 依 `drafts/glossary.yaml` 檢查譯名一致與舊譯殘留 |
 | `review [cid lo hi] [--done]` / `revise cid idx --old --new --why` | 譯後審閱：原文譯文並排、定點改譯稿並記錄、審閱進度 |
 | `build` | 產出 `《中文書名 原文書名》.epub` |
-| `pdf --paper a4 b5 b4` | 依紙張自動排版（左右邊界等寬），產出 `《…》（B5）.pdf` 等，並自動逐頁驗證 |
+| `pdf --paper a4 b5 b4` | 依紙張自動排版（預設書本式：內側留寬），產出 `《…》（B5）.pdf` 等，並自動逐頁驗證 |
 | `pdf --tone light cream wheat honey amber` | 夜讀黃底版，產出 `《…》（B5 Light night）.pdf` 等 |
-| `pdf --binding` | 裝訂版：內側邊界比外側寬、左右頁鏡像，產出 `《…》（B5 裝訂）.pdf`（預設左右等寬，供散頁閱讀） |
+| `pdf --document` | 文件式：左右邊界等寬，產出 `《…》（B5 Document）.pdf`（預設書本式 `book`：內側比外側寬、左右頁鏡像，裝訂或釘書針都適用） |
 
 ## 目錄結構
 ```
@@ -104,12 +104,12 @@ epub_translate_directly/
     │   ├── terms.tsv          terms 的專名候選清單
     │   ├── glossary_report.json   glossary 的檢查報告
     │   ├── index_report.tsv   extract 的索引對位報告（每個頁碼對到哪一段、怎麼對的）
-    │   └── print/{紙張[-色調][-binding]}/   pdf 的排版中間檔（content.json、config.json、book.typ）
+    │   └── print/{紙張[-色調][-document]}/   pdf 的排版中間檔（content.json、config.json、book.typ）
     ├── OCR_review/            Claude 目視檢查用的暫存檔（解開的 EPUB、公式對照 HTML…），可整個刪掉
     ├── 《中文書名 原文書名》.epub          build 產出
-    ├── 《中文書名 原文書名》（B5）.pdf     pdf 產出，每種紙張一份
+    ├── 《中文書名 原文書名》（B5）.pdf     pdf 產出（書本式），每種紙張一份
     ├── 《中文書名 原文書名》（B5 Light night）.pdf   加 --tone 的夜讀黃底版
-    └── 《中文書名 原文書名》（B5 裝訂）.pdf     加 --binding 的裝訂版（內側留寬）
+    └── 《中文書名 原文書名》（B5 Document）.pdf   加 --document 的文件式（左右等寬）
 ```
 - 資料流：（原檔.acsm →`fetch`→）原檔.epub 或 原檔.pdf →`extract`（PDF：文字層／OCR）→ work/book.json ＋ drafts/ →`merge`→ work/translations.json →`build`→ 譯本 EPUB →`pdf`→ PDF。
 - 只改 `drafts/` 與 `system_prompts.yaml`；`work/`、EPUB、PDF 都由指令重新產生，不要手改。

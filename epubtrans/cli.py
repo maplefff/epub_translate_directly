@@ -98,7 +98,7 @@ def main(argv=None):
               python -m epubtrans build   "書名"            產出譯本 EPUB
               python -m epubtrans pdf     "書名" --paper b5 [b4 a4]   依紙張自動排版，產出可列印 PDF
               python -m epubtrans pdf     "書名" --paper b5 --tone light   夜讀黃底版（light/cream/wheat/honey/amber）
-              python -m epubtrans pdf     "書名" --paper b5 --binding      裝訂版（內側留寬；預設左右等寬）
+              python -m epubtrans pdf     "書名" --paper b5 --document     文件式（左右等寬；預設書本式，內側留寬）
               python -m epubtrans pdf-verify "書名" --paper b5       重新逐頁驗證已產出的 PDF
               python -m epubtrans fonts                         列出可用的中文字型
               python -m epubtrans acsm-register                 註冊匿名 Adobe ID（adept/ 沒有授權時才需要）
@@ -182,15 +182,15 @@ def main(argv=None):
     s.add_argument("--cover", action="store_const", const=True, dest="use_cover", help="用原書封面圖當第一頁")
     s.add_argument("--tone", nargs="+", default=[None],
                    help="夜讀黃底色調：light / cream / wheat / honey / amber（見 settings/print_profile.yaml）")
-    s.add_argument("--binding", action="store_const", const=True,
-                   help="裝訂版：內側邊界比外側寬、左右頁鏡像（預設左右等寬，適合散頁閱讀）")
+    s.add_argument("--document", action="store_const", const="document", dest="style",
+                   help="文件式：左右邊界等寬（預設書本式：內側比外側寬、左右頁鏡像）")
     s.set_defaults(fn=cmd_pdf)
     s = add("pdf-verify", "重新逐頁驗證已產出的 PDF")
     s.add_argument("--paper", nargs="+", default=["b5"])
     s.add_argument("--tone", nargs="+", default=[None])
-    s.add_argument("--binding", action="store_true", help="驗證裝訂版")
+    s.add_argument("--document", action="store_const", const="document", dest="style", help="驗證文件式")
     s.set_defaults(fn=lambda a: [__import__("epubtrans.output.export_pdf.pipeline", fromlist=["check"]).check(
-        _cfg(a), p, t, a.binding) for p in a.paper for t in a.tone] and None)
+        _cfg(a), p, t, a.style) for p in a.paper for t in a.tone] and None)
     sub.add_parser("fonts", help="列出可用的中文字型").set_defaults(fn=cmd_fonts)
     sub.add_parser("acsm-register", help="註冊匿名 Adobe ID（會在 Adobe 建帳號，由使用者自己執行）").set_defaults(
         fn=lambda a: __import__("epubtrans.source.fetch_acsm", fromlist=["register"]).register())
@@ -213,7 +213,7 @@ def cmd_pdf(a):
     from .output.export_pdf import pipeline
     cfg = _cfg(a)
     cli = {"body_size": a.body_size, "cjk_font": a.cjk_font, "toc": a.toc, "use_cover": a.use_cover,
-           "binding": a.binding}
+           "style": a.style}
     for p in a.paper:
         for t in a.tone:
             print(f"\n{'=' * 60}\n{p}{' ' + t if t else ''}\n{'=' * 60}")

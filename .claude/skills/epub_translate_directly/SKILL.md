@@ -210,7 +210,8 @@ Vision OCR 讀不了公式（獨立公式整條消失、∇ 讀成 V）。改走
 - 版型（邊界、字級）依紙張自動算出；每次產出會自動逐頁驗證，出現 ✗ 就當作失敗。
 - 輸出：`process/書名/《中文書名 原文書名》（B5）.pdf`。
 - 夜讀黃底版：加 `--tone`，可選 `light`、`cream`、`wheat`、`honey`、`amber`（由淺到深，可一次多個），輸出 `《…》（B5 Light night）.pdf` 這類檔名。色調定義在 `epubtrans/settings/print_profile.yaml` 的 `tones:`。
-- 邊界預設左右等寬（印成散頁閱讀）。要裝訂成冊加 `--binding`：內側比外側寬、左右頁鏡像，另存成 `《…》（B5 裝訂）.pdf`，不蓋掉散頁版；版心寬與字級兩者相同。某本書固定要裝訂版，在 `print:` 設 `binding: true`。
+- 版式 `style` 有兩種，版心寬與字級相同：預設 `book`（書本式）內側比外側寬、左右頁鏡像——雙面印後不論裝訂成冊或用釘書針，內側都會被吃掉；加 `--document`（文件式）左右邊界等寬，另存成 `《…》（B5 Document）.pdf`，不蓋掉書本式。某本書固定用文件式，在 `print:` 設 `style: document`。
+- 更新全部 PDF 時，每本書都出 A4 與 B5（`--paper a4 b5`），已有的夜讀色調版也一併重出。
 - 書名頁的書名／副標／作者寫在 `system_prompts.yaml` 的 `print:`（`title`、`subtitle`、`author`）。譯者模型與「僅供個人閱讀研究使用」只放版權頁（`book.colophon`），書名頁不寫，不設 `print.imprint`。
 - `print.part_ids`：明確指定哪些章是部扉頁（半書名頁這類「只有章名」的第一層章節會被自動判斷誤認）。`print.chapter_ids`：第一層、卻要照正文章排版的章（大字章名、章首留白），目錄裡仍與各部同層。
 - 圖：緊跟在圖後、原文以「Figure 2.1:」開頭的段落就是圖說，build 會把兩者放進同一個 `<figure>`（譯稿照常逐段寫，圖說譯成「圖 2.1：……」）。
@@ -296,12 +297,12 @@ epub_translate_directly/
     │   ├── terms.tsv          terms 的專名候選清單
     │   ├── glossary_report.json   glossary 的檢查報告
     │   ├── index_report.tsv   extract 的索引對位報告（每個頁碼對到哪一段、怎麼對的）
-    │   └── print/{紙張[-色調][-binding]}/   pdf 的排版中間檔（content.json、config.json、book.typ）
+    │   └── print/{紙張[-色調][-document]}/   pdf 的排版中間檔（content.json、config.json、book.typ）
     ├── OCR_review/            Claude 目視檢查用的暫存檔（解開的 EPUB、公式對照 HTML…），可整個刪掉
     ├── 《中文書名 原文書名》.epub          build 產出
-    ├── 《中文書名 原文書名》（B5）.pdf     pdf 產出，每種紙張一份
+    ├── 《中文書名 原文書名》（B5）.pdf     pdf 產出（書本式），每種紙張一份
     ├── 《中文書名 原文書名》（B5 Light night）.pdf   加 --tone 的夜讀黃底版
-    └── 《中文書名 原文書名》（B5 裝訂）.pdf     加 --binding 的裝訂版（內側留寬）
+    └── 《中文書名 原文書名》（B5 Document）.pdf   加 --document 的文件式（左右等寬）
 ```
 - 資料流：（原檔.acsm →`fetch`→）原檔.epub 或 原檔.pdf →`extract`（PDF：文字層／OCR）→ work/book.json ＋ drafts/ →`merge`→ work/translations.json →`build`→ 譯本 EPUB →`pdf`→ PDF。
 - 只改 `drafts/` 與 `system_prompts.yaml`；`work/`、EPUB、PDF 都由指令重新產生，不要手改。

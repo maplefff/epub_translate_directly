@@ -31,9 +31,9 @@
 #let hkind = state("hkind", "matter")
 
 // ── 頁面 ──────────────────────────────────────────────────────────
-// binding: left ＋ inside/outside ＝ 對頁鏡像。裝訂版（--binding）才有的需求：
-// 雙面印訂起來之後，內側那條邊會被裝訂吃掉，所以要留得比外緣寬。
-// 預設是散頁閱讀，layout.py 把內外給成同一個值，鏡像就等於左右對稱。
+// binding: left ＋ inside/outside ＝ 對頁鏡像。預設的書本式（style: book）：
+// 雙面印之後不論裝訂或釘書針，內側那條邊都會被吃掉，所以要留得比外緣寬。
+// 文件式（--document）layout.py 把內外給成同一個值，鏡像就等於左右對稱。
 #set page(
   // 紙張由 layout.py 給寬高（mm），不用 Typst 的紙張名稱：JIS B5 與 ISO B5
   // 同名不同大小，直接給尺寸就不會對應錯。

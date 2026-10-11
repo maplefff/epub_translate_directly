@@ -8,7 +8,8 @@
 中文長篇好讀的條件其實只有幾個，都能從紙張尺寸推出來：
   - 每行 30～38 字（＝ 版心寬 ÷ 字級）
   - 行距＝字級 × 1.7（見 book.typ 的固定行框）
-  - 對頁內側邊界大於外側（裝訂會吃掉內側）；不裝訂（預設）就左右等寬
+  - 書本式（style: book，預設）：對頁內側邊界大於外側，裝訂或釘書針都會吃掉內側；
+    文件式（style: document，--document）：左右等寬
 算式用原本手調過的 ISO-B5（11pt）、A4（12pt）、A5（10.5pt）校準，
 這三種紙算出來的結果和手調值差 0～0.5pt、邊界差 1～3mm。
 """
@@ -17,6 +18,7 @@ from ...core.config import SETTINGS
 
 PROFILE = os.path.join(SETTINGS, "print_profile.yaml")
 MM_PER_PT = 25.4 / 72
+STYLES = ("book", "document")   # 書本式（內側留寬、對頁鏡像）／文件式（左右等寬）
 
 # 寬×高（mm）與檔名標記。b5、b4 採 JIS —— 台灣市售影印紙（Double A 等）的
 # B5 是 182×257、B4 是 257×364；ISO 的 B5/B4 小一號，要明寫 iso-。
@@ -94,8 +96,10 @@ def load(name, book_print=None, cli=None, tone_name=None):
     cfg = {**base, **auto(name, prof), **(book_print or {}),
            **{k: v for k, v in (cli or {}).items() if v is not None}}
     W, H, label = PAPERS[name]
-    # 散頁閱讀（預設）沒有裝訂側：左右邊界取平均，版心寬與字級都和裝訂版一樣
-    if not cfg.get("binding"):
+    if cfg.get("style", "book") not in STYLES:
+        raise SystemExit(f"不支援的版式 style: {cfg['style']!r}；可用：{'、'.join(STYLES)}")
+    # 文件式沒有裝訂側：左右邊界取平均，版心寬與字級都和書本式一樣
+    if cfg.get("style") == "document":
         side = round((float(cfg["margin_inside"]) + float(cfg["margin_outside"])) / 2, 1)
         cfg["margin_inside"] = cfg["margin_outside"] = side
     t = tone(tone_name) or {}
@@ -111,8 +115,8 @@ def summary(cfg):
     body_mm = float(cfg["body_size"]) * MM_PER_PT
     pitch_mm = body_mm * (1 + float(cfg["leading_ratio"]))
     tone = f"　色調 {cfg['tone_label']}（底 {cfg['page_color']}／字 {cfg['text_color']}）" if cfg.get("tone_label") else ""
-    sides = (f"裝訂 內{cfg['margin_inside']}／外{cfg['margin_outside']}" if cfg.get("binding")
-             else f"左右{cfg['margin_inside']}")
+    sides = (f"左右{cfg['margin_inside']}（document）" if cfg.get("style") == "document"
+             else f"內{cfg['margin_inside']}／外{cfg['margin_outside']}（book）")
     return (f"紙張 {cfg['paper_label']} {cfg['paper_w']}×{cfg['paper_h']}mm{tone}　"
             f"邊界 {sides}／"
             f"上{cfg['margin_top']}／下{cfg['margin_bottom']}mm　"

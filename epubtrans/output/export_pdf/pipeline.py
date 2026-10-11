@@ -4,10 +4,10 @@
 
 輸入是 `python -m epubtrans build` 產出的譯本 EPUB，輸出放在同一個目錄：
 《中文書名 原文書名》（B5）.pdf；加 --tone 是夜讀的黃底版，（B5 Light night）.pdf；
-加 --binding 是內側留寬的裝訂版，（B5 裝訂）.pdf。每種紙張一份，不做縮放版或拼版 ——
+預設是書本式（內側留寬、對頁鏡像）；加 --document 是左右等寬的文件式，（B5 Document）.pdf。每種紙張一份，不做縮放版或拼版 ——
 要印在哪種紙上，就用那種紙排一次，列印時選「實際大小／100%」。
 
-中間產物在 work/print/{紙張[-色調][-binding]}/：content.json（書稿結構）、config.json（版型數字）、
+中間產物在 work/print/{紙張[-色調][-document]}/：content.json（書稿結構）、config.json（版型數字）、
 book.typ。排版跑壞時先看那兩個 JSON —— 多半是結構抽錯，不是版面規則寫錯。
 """
 import json, os, shutil, subprocess, sys
@@ -18,15 +18,15 @@ TEMPLATE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "typst", "bo
 TYPST = shutil.which("typst") or "/opt/homebrew/bin/typst"
 
 
-def paths(cfg, paper, tone=None, binding=False):
+def paths(cfg, paper, tone=None, style=None):
     label, work = layout.PAPERS[paper][2], paper
     t = layout.tone(tone)
     if t:
         label += " " + t["label"]
         work += "-" + tone
-    if binding:
-        label += " 裝訂"
-        work += "-binding"
+    if style == "document":
+        label += " Document"
+        work += "-document"
     pdf = os.path.join(cfg.dir, f"{cfg.output_basename()}（{label}）.pdf")
     return pdf, cfg.wpath("print", work)
 
@@ -42,7 +42,7 @@ def run(cfg, paper, cli=None, tone=None):
     if book_print.get("imprint"):
         book_print["imprint"] = cfg.fill_translator(book_print["imprint"])
     pcfg = layout.load(paper, book_print, cli, tone)
-    pdf, work = paths(cfg, paper, tone, pcfg.get("binding"))
+    pdf, work = paths(cfg, paper, tone, pcfg.get("style"))
     if os.path.isdir(work):
         shutil.rmtree(work)
     os.makedirs(work)
@@ -74,9 +74,9 @@ def run(cfg, paper, cli=None, tone=None):
         raise SystemExit(1)
 
 
-def check(cfg, paper, tone=None, binding=False):
+def check(cfg, paper, tone=None, style=None):
     paper = layout.paper(paper)
-    pdf, work = paths(cfg, paper, tone, binding)
+    pdf, work = paths(cfg, paper, tone, style)
     if not os.path.exists(pdf):
         raise SystemExit(f"找不到 {pdf}\n先跑 `python -m epubtrans pdf \"{cfg.name}\" --paper {paper}`")
     if pagecheck.run(work, pdf):
