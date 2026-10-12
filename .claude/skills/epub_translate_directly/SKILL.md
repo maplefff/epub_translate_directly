@@ -114,7 +114,8 @@ Vision OCR 讀不了公式（獨立公式整條消失、∇ 讀成 V）。改走
   - PDF：`pdf:`（見上）。
   - 同名章節標題：`book.title_overrides`。
 - 原書的封面頁（整章只有封面圖）不必跳過：build 會直接拿它當譯本封面、排在目錄前，PDF 端則略過不印。
-- `book.translator` 填你自己的模型名稱（例：`Claude Opus 5.5`），不要寫「AI 輔助翻譯」這類泛稱。範本的 `colophon`（譯本版權頁，EPUB 與 PDF 都有）寫「由 {translator} 翻譯，僅供個人閱讀研究使用」，build 時代入；沒填就停下來，不會把佔位字印出去。譯者模型與聲明**只放版權頁**，PDF 書名頁不寫（不設 `print.imprint`）。
+- `book.translator` 填你自己的模型名稱（例：`Claude Opus 5.5`），不要寫「AI 輔助翻譯」這類泛稱；build 與 pdf 時代入 `{translator}`，沒填就停下來，不會把佔位字印出去。
+- `book.colophon`（譯本版權頁，EPUB 與 PDF 都有；一行一段，句子不要拆兩行）照範本填：原書全名、原書版權行、版權歸屬，「本譯本由 {translator} 輔助翻譯產生，僅供個人閱讀研究使用，非商業發行，不代表任何正式授權譯本。」，最後一行寫台灣的正式授權中譯本（出版社、中譯書名、譯者、年份，上網查證；博客來書頁有譯者與出版日期）。台灣沒有就寫簡體版或幾個版本並列；都查不到就刪掉那一行，範本的 `{原書全名}` 這類佔位字沒換掉 build 會停。
 - 建 `process/書名/drafts/translation_notes.md`：寫這本書的語體、不可提前揭曉的東西、譯例。通用規範見 [references/general_rules.md](references/general_rules.md)，書本規範優先。
 - 建 `process/書名/drafts/glossary.yaml`：固定譯名表。格式跑一次 `glossary "書名"` 就會印出範例；每條是 `en`（原文，可列變體）、`zh`（譯名）、`old`（舊譯或禁用譯法）、`note`（選填）。
 
@@ -212,7 +213,7 @@ Vision OCR 讀不了公式（獨立公式整條消失、∇ 讀成 V）。改走
 - 夜讀黃底版：加 `--tone`，可選 `light`、`cream`、`wheat`、`honey`、`amber`（由淺到深，可一次多個），輸出 `《…》（B5 Light night）.pdf` 這類檔名。色調定義在 `epubtrans/settings/print_profile.yaml` 的 `tones:`。
 - 版式 `style` 有兩種，版心寬與字級相同：預設 `book`（書本式）內側比外側寬、左右頁鏡像——雙面印後不論裝訂成冊或用釘書針，內側都會被吃掉；加 `--document`（文件式）左右邊界等寬，另存成 `《…》（B5 Document）.pdf`，不蓋掉書本式。某本書固定用文件式，在 `print:` 設 `style: document`。
 - 更新全部 PDF 時，每本書都出 A4 與 B5（`--paper a4 b5`），已有的夜讀色調版也一併重出。
-- 書名頁的書名／副標／作者寫在 `system_prompts.yaml` 的 `print:`（`title`、`subtitle`、`author`）。譯者模型與「僅供個人閱讀研究使用」只放版權頁（`book.colophon`），書名頁不寫，不設 `print.imprint`。
+- 書名頁：中文書名、較小字級的英文原書名、「{作者}　著」，寫在 `system_prompts.yaml` 的 `print:`（`title`、`subtitle` 用英文原書名、`author` 例「阿蒂夫・米安、阿米爾・蘇斐　著」）。頁底的「本譯本由 {translator} 輔助翻譯產生，僅供個人閱讀研究使用，非商業發行」是 `print_profile.yaml` 的預設 `imprint`，各書不必寫；沒有 `book.translator`（原書已是中文）就不印。
 - `print.part_ids`：明確指定哪些章是部扉頁（半書名頁這類「只有章名」的第一層章節會被自動判斷誤認）。`print.chapter_ids`：第一層、卻要照正文章排版的章（大字章名、章首留白），目錄裡仍與各部同層。
 - 圖：緊跟在圖後、原文以「Figure 2.1:」開頭的段落就是圖說，build 會把兩者放進同一個 `<figure>`（譯稿照常逐段寫，圖說譯成「圖 2.1：……」）。
   PDF 把圖與圖說綁在一起浮動到頁頂或頁底，正文照常排滿（`print.image_float: false` 改成排在原位）；圖寬占版心 `image_width`%，高度不超過 `image_max_height`%（直式窄圖依高度縮）。
@@ -228,7 +229,7 @@ mkdir -p "process/書名" && ./.venv/bin/python -m epubtrans init "書名"
 mv "process/書名/{領回來的長書名}.epub" "process/書名/《書名》.epub"     # 放到譯本 EPUB 的位置
 ./.venv/bin/python -m epubtrans pdf "書名" --paper b5
 ```
-- `system_prompts.yaml`：`title`、`title_zh` 都填中文書名，`author` 照中文版寫；`source_file` 與 `output_file` 都寫 `《書名》.epub`；`translator` 留空，並刪掉 `colophon` 裡含 `{translator}` 的那行。`pdf` 讀的是 `output_file`，所以會直接排原書。
+- `system_prompts.yaml`：`title`、`title_zh` 都填中文書名，`author` 照中文版寫；`source_file` 與 `output_file` 都寫 `《書名》.epub`；`translator` 留空，`colophon` 改寫成一行「本書僅供個人閱讀研究使用，非商業發行。」（範本的佔位字與 `{translator}` 都刪掉；書名頁也就不印聲明）。`pdf` 讀的是 `output_file`，所以會直接排原書。
 - 不跑 extract、翻譯、merge。**不要跑 `build`**：`output_file` 就是原書，build 會用重組過的內容覆寫它（原書是買來解密的，ACSM 過期就領不回來）。
 - 版面問題照〈出 PDF〉調 `print:`；不要為了排版去改原書 EPUB 檔。
 

@@ -38,10 +38,12 @@ def run(cfg, paper, cli=None, tone=None):
         raise SystemExit(f"找不到譯本 EPUB：{epub}\n先跑 `python -m epubtrans build \"{cfg.name}\"`")
     if not os.path.exists(TYPST):
         raise SystemExit("找不到 typst，先 `brew install typst`")
-    book_print = dict(cfg.raw.get("print") or {})
-    if book_print.get("imprint"):
-        book_print["imprint"] = cfg.fill_translator(book_print["imprint"])
-    pcfg = layout.load(paper, book_print, cli, tone)
+    pcfg = layout.load(paper, cfg.raw.get("print"), cli, tone)
+    # 書名頁底部的聲明（預設在 print_profile.yaml）代入翻譯模型；
+    # 原書已是中文、沒有 book.translator 時，含 {translator} 的預設聲明不印
+    if "{translator}" in (pcfg.get("imprint") or "") and not cfg.translator:
+        pcfg["imprint"] = ""
+    pcfg["imprint"] = cfg.fill_translator(pcfg.get("imprint") or "")
     pdf, work = paths(cfg, paper, tone, pcfg.get("style"))
     if os.path.isdir(work):
         shutil.rmtree(work)

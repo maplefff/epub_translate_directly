@@ -61,8 +61,14 @@ class BookConfig:
 
     def fill_translator(self, text):
         """colophon 與 print.imprint 裡的 {translator} 代入 book.translator。
-        沒填就停：佔位字印進譯本，比少印一行更糟。"""
-        if not text or "{translator}" not in text:
+        沒填就停：佔位字印進譯本，比少印一行更糟。範本 colophon 的 {原書全名} 這類中文佔位字沒換掉也停。"""
+        if not text:
+            return text
+        left = re.findall(r"\{[^{}\n]*[\u4e00-\u9fff][^{}\n]*\}", text)
+        if left:
+            raise SystemExit(f"system_prompts.yaml 的 colophon 還有範本佔位字沒填：{'、'.join(dict.fromkeys(left))}\n"
+                             "查不到的資訊（例如沒有正式中譯本）就把那一行刪掉。")
+        if "{translator}" not in text:
             return text
         if not self.translator:
             raise SystemExit(

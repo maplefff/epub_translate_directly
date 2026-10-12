@@ -16,7 +16,7 @@
   - 圖列（掃描數學書裡各有圖說的並排圖，book.json 的 figrow）：EPUB 是 div.figrow 裡的幾個 <figure>，
     圖說依序進各自的 <figure>；PDF 並排在同一頁、同一高度。
   - print.image_float: false（掃描數學書）：圖不浮動、排在原位，不能跑到前面的文字（章名）之上；行距格線不斷。
-  - 翻譯模型名稱：colophon 的 {translator} 代入 book.translator，只印在版權頁、不上書名頁；
+  - 翻譯模型名稱：colophon 與書名頁底部聲明的 {translator} 都代入 book.translator；範本佔位字沒填就停；
     沒填就停下來，不讓佔位字印進譯本。
 只用暫存目錄，不碰 process/ 底下任何一本書。需要 typst。
 """
@@ -279,7 +279,8 @@ def main():
               and order[0] < order[1] < order[2] and order[3] < order[4], order)
         t = chs["c004"]["blocks"][0]["t"]
         check("<sup> 轉回上標字元、前面不多空格", t.endswith("下滑。²") or t.endswith("滑。²"), t[-8:])
-        check("書名頁不印譯者模型（只放版權頁）", "測試模型" not in pages[0], pages[0][-60:])
+        check("書名頁底部印出聲明與譯者模型", "本譯本由測試模型1.0輔助翻譯產生" in re.sub(r"\s+", "", pages[0]),
+              pages[0][-80:])
         check("PDF 的版權頁印出譯者模型", any("測試模型" in p for p in pages[1:]))
         cfg.raw["book"]["translator"] = ""
         try:
@@ -289,6 +290,12 @@ def main():
             stopped = True
         check("translator 沒填、卻用了 {translator}：停下來", stopped)
         check("沒用 {translator} 的字串照原樣通過", cfg.fill_translator("非商業發行") == "非商業發行")
+        try:
+            cfg.fill_translator("{原書全名}\n非商業發行")
+            stopped = False
+        except SystemExit:
+            stopped = True
+        check("colophon 還有範本的中文佔位字：停下來", stopped)
     finally:
         if os.environ.get("KEEP"):
             print(f"保留暫存目錄：{tmp}")

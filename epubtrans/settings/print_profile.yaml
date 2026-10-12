@@ -19,10 +19,11 @@ cjk_latin_spacing: true    # 中西文之間自動插 1/4 em（手動空格已�
 chapter_recto: false       # true 才強制每章從右頁起（費紙）
 style: book                # book＝書本式，內側比外側寬、左右頁鏡像（裝訂、釘書針都吃內側）；document＝左右等寬（--document）
 
+# 書名頁：中文書名、較小字級的英文原書名、「{作者}　著」，頁底一行聲明。各書在 system_prompts.yaml 的 print: 寫前三項。
 title: ""                  # 書名頁與書眉；留空取 EPUB 的 dc:title
-subtitle: ""
-author: ""
-imprint: ""                # 書名頁底部的一行小字
+subtitle: ""               # 英文原書名
+author: ""                 # 例「阿蒂夫・米安、阿米爾・蘇斐　著」；留空取 EPUB 的 dc:creator
+imprint: "本譯本由 {translator} 輔助翻譯產生，僅供個人閱讀研究使用，非商業發行"   # 書名頁底部的小字；{translator} 代入 book.translator，沒填（原書已是中文）就不印
 
 # ── 自動版型的參數（見 epubtrans/output/export_pdf/layout.py 的說明）──────────────────
 layout:
