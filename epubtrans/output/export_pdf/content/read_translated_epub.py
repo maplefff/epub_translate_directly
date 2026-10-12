@@ -21,6 +21,7 @@ NOISE_CLASS = re.compile(r"kobo|pagebreak|page-?num", re.I)
 # 注號：build 把譯稿的上標數字寫成 <sup>1</sup>，這裡轉回上標字元（¹），
 # 文字才能維持一個純字串走 JSON；book.typ 再用 show 規則把上標字元排成 super。
 SUPS = "⁰¹²³⁴⁵⁶⁷⁸⁹"
+_SPLIT = re.compile(r"^(.*)_split_(\d+)$")
 _TO_SUP = str.maketrans("0123456789", SUPS)
 
 
@@ -54,16 +55,45 @@ def _math_to_text(soup, body):
         parent.smooth()
 
 
+# 原書就是中文的 EPUB（只排版列印）常把注號寫成 <sup>[1]</sup> 或
+# <span class="math-super"><a href="#ff1">[1]</a></span>：方括號一併拿掉，照樣排成上標。
+# 注文開頭那個連回正文的「[1]」不在上標裡，維持原樣。
+_NOTE_REF = re.compile(r"^\[?(\d+)\]?$")
+
+
+def _is_sup(tag):
+    return tag.name == "sup" or (tag.name == "span" and "super" in " ".join(tag.get("class") or []))
+
+
 def _sup_to_chars(el):
     hit = False
-    for sup in el.find_all("sup"):
-        t = sup.get_text()
-        if t.strip().isdigit():
-            sup.replace_with(t.strip().translate(_TO_SUP))
+    for sup in el.find_all(_is_sup):
+        m = _NOTE_REF.match(sup.get_text().strip())
+        if m:
+            sup.replace_with(m.group(1).translate(_TO_SUP))
             hit = True
     if hit:
         # 不併的話上標字元是獨立的文字節點，get_text(" ") 會在它前面插一個空格
         el.smooth()
+
+
+# 原書就是中文的 EPUB 不用 <figure>：圖和圖說包在同一個 div 裡（<div class="tupian"><img/><p>圖1　…</p></div>）。
+# 圖說不綁住圖，PDF 讓圖浮到頁頂、圖說卻留在正文裡，兩者隔著幾段字。
+_CAP_CLASS = re.compile(r"caption|tushuo|figcap|picnote", re.I)
+_CAP_TEXT = re.compile(r"^(圖|表|Figure|Fig\.|Table)\s*[\dA-Z０-９]", re.I)
+
+
+def _div_caption(img):
+    """img 所在的 div 裡緊接在圖後面、看起來是圖說的那個 <p>；沒有就 None。"""
+    box = img.parent
+    if box is None or box.name != "div" or len(box.find_all("img")) != 1:
+        return None
+    p = img.find_next_sibling("p")
+    if p is None or p.find("img") is not None:
+        return None
+    if _CAP_CLASS.search(" ".join(p.get("class") or [])) or _CAP_TEXT.match(_clean(p.get_text())):
+        return p
+    return None
 
 
 def _anchor(href, doc):
@@ -120,6 +150,7 @@ class Epub:
         self.opf = self._opf_path()
         self.opf_dir = os.path.dirname(self.opf)
         self._parse_opf()
+        self.inline_images, self.unmapped_inline = {}, []
 
     # ── 骨架 ─────────────────────────────────────────────────────────
     def _opf_path(self):
@@ -172,10 +203,27 @@ class Epub:
             out[self._res(href)] = (max(1, depth), _clean(a.get_text()))
         return out
 
+    # ── 段落中的小圖 ─────────────────────────────────────────────────
+    def _inline_images(self, body, href):
+        """夾在句子裡的小圖（原書用圖片排的帶分數「64 64/99」、特殊符號）。
+        版面只排純文字段落，圖會被拉出來另起一行、句子留個缺口；
+        print.inline_images 指定替代文字（{檔名: 文字}）的就換成字，沒指定的列出來提醒。"""
+        for img in body.find_all("img"):
+            p = img.find_parent("p")
+            if p is None or not _clean(p.get_text()):
+                continue
+            name = os.path.basename(img.get("src") or "")
+            if name in self.inline_images:
+                img.replace_with(str(self.inline_images[name]))
+                p.smooth()
+            else:
+                self.unmapped_inline.append(f"{os.path.basename(href)}:{name}")
+
     # ── 內容 ─────────────────────────────────────────────────────────
     def read(self):
         levels = self.toc_levels()
         chapters, images = [], {}
+        prev_title_level = None
 
         for sid in self.spine:
             if sid in self.nav_ids or sid not in self.manifest:
@@ -186,11 +234,13 @@ class Epub:
             soup = BeautifulSoup(self.zf.read(href).decode("utf-8", "ignore"), "lxml")
             body = soup.body or soup
             _math_to_text(soup, body)
+            self._inline_images(body, href)
 
             blocks, title, title_level, row_el = [], None, None, None
+            taken = set()      # 已收成圖說的 <p>，不再當正文段
             for el in body.find_all(BLOCK_TAGS):
                 # blockquote 只當容器，內容由它底下的 p 負責
-                if el.name == "blockquote":
+                if el.name == "blockquote" or id(el) in taken:
                     continue
                 if el.find_parent("blockquote") is not None and el.name == "p":
                     kind = "quote"
@@ -211,6 +261,10 @@ class Epub:
                         # 圖說跟著圖走（build 把兩者放進同一個 <figure>）：排版時才能綁在同一頁
                         fig = el.find_parent("figure")
                         cap = fig.find("figcaption") if fig is not None else None
+                        if cap is None:
+                            cap = _div_caption(el)
+                            if cap is not None:
+                                taken.add(id(cap))
                         if cap is not None:
                             blk["cap"] = _clean(cap.get_text(" ", strip=True))
                             if cap.get("id"):
@@ -270,6 +324,19 @@ class Epub:
                 level = 1 if (title_level or 1) <= 1 else 2
             if title is None and not blocks:
                 continue
+            # calibre 把過長的 XHTML 從中間切開（part0012_split_000、_split_001…）：
+            # 後半段以節標題（比前半段的章標題深一層以上）開頭，是同一章的續篇，不是新章。
+            # 《美國貨幣史》第 7 章因此在目錄裡多出一個「7.4」章，章首另起新頁。
+            stem = os.path.splitext(os.path.basename(href))[0]
+            sm = _SPLIT.match(stem)
+            prev = chapters[-1] if chapters else None
+            if (sm and int(sm.group(2)) > 0 and prev and not nav_hit
+                    and _SPLIT.match(prev["id"]) and _SPLIT.match(prev["id"]).group(1) == sm.group(1)
+                    and title_level and prev_title_level and title_level > prev_title_level):
+                prev["blocks"].append({"k": "h", "level": title_level, "t": title})
+                prev["blocks"].extend(blocks)
+                continue
+            prev_title_level = title_level
             chapters.append({
                 "id": os.path.splitext(os.path.basename(href))[0],
                 "level": level,
@@ -290,9 +357,13 @@ class Epub:
         return None
 
 
-def run(epub_path, workdir):
+def run(epub_path, workdir, inline_images=None):
     ep = Epub(epub_path)
+    ep.inline_images = inline_images or {}
     book, images = ep.read()
+    if ep.unmapped_inline:
+        print(f"⚠ 段落中的小圖 {len(ep.unmapped_inline)} 張會另起一行（print.inline_images 可指定替代文字）："
+              + "、".join(ep.unmapped_inline[:10]))
     cover = ep.extract_images(images, os.path.join(workdir, "images"))
     book["cover"] = cover
     n_blocks = sum(len(c["blocks"]) for c in book["chapters"])

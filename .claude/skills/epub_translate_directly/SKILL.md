@@ -232,6 +232,9 @@ mv "process/書名/{領回來的長書名}.epub" "process/書名/《書名》.ep
 - `system_prompts.yaml`：`title`、`title_zh` 都填中文書名，`author` 照中文版寫；`source_file` 與 `output_file` 都寫 `《書名》.epub`；`translator` 留空，`colophon` 改寫成一行「本書僅供個人閱讀研究使用，非商業發行。」（範本的佔位字與 `{translator}` 都刪掉；書名頁也就不印聲明）。`pdf` 讀的是 `output_file`，所以會直接排原書。
 - 不跑 extract、翻譯、merge。**不要跑 `build`**：`output_file` 就是原書，build 會用重組過的內容覆寫它（原書是買來解密的，ACSM 過期就領不回來）。
 - 版面問題照〈出 PDF〉調 `print:`；不要為了排版去改原書 EPUB 檔。
+- 中文電子書（多看、calibre 轉檔）常見的排法，`pdf` 讀原書時自動處理：注號 `<sup>[1]</sup>`、`<span class="math-super"><a>[1]</a></span>` 排成上標；calibre 把長章切開的 `_split_001`（以節標題開頭）併回前一章；`div` 裡緊接在圖後的圖說（`圖1　…`、class 含 tushuo／caption）跟圖綁在一起。
+- 表格是圖片、表名在上、資料來源在下的書，設 `print.image_float: false`，否則圖浮到頁頂，表名與出處留在原處。
+- 句中用圖片排的帶分數、符號（`pdf` 會警告「段落中的小圖」）：`print.inline_images: {"00086.jpeg": "64又64/99"}` 換成文字。例：`process/《美國貨幣史 A Monetary History of the United States》/`。
 
 ### 修改既有譯文
 用 `revise` 改那一句（見〈譯後審閱〉）→ `merge "書名" {cid}` → `verify` → `build`。要改的是同一個術語的系統性譯法時，照〈改譯名〉做，**逐處確認語境**再改。不要在譯文端做無範圍的全域取代，同一個中文詞常常同時是一般用詞。

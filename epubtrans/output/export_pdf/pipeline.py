@@ -50,7 +50,7 @@ def run(cfg, paper, cli=None, tone=None):
     os.makedirs(work)
 
     print(layout.summary(pcfg))
-    book = read_translated_epub.run(epub, work)
+    book = read_translated_epub.run(epub, work, pcfg.get("inline_images"))
     book = prepare.run(book, pcfg)
     mathcheck.run(book, work, TYPST)
     json.dump(book, open(os.path.join(work, "content.json"), "w", encoding="utf-8"),
