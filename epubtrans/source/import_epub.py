@@ -163,6 +163,12 @@ def run(cfg):
     # 只有圖、沒有標題的 spine 文件併進下一章開頭（Atlas of the Heart 每部前的跨頁照片，
     # 自成一章的話章名只能取 <title>，十三章都叫「Continued」）。
     join_pat = [s.lower() for s in (ex.get("join_next") or [])]
+    # spine 檔名含這些字串的文件接在前一章後面，不另起一章：calibre 把過長的章從中間切開
+    # （美國貨幣史第 7 章的 part0012_split_001 從 7.4 節開始，沒有章標題）。
+    prev_pat = [s.lower() for s in (ex.get("join_prev") or [])]
+    # 句中用圖片排的字（帶分數「64 64/99」、特殊符號）：{圖檔名: 替代文字}，換成文字留在段落裡，
+    # 不另外收成圖（否則圖會被拉出來另起一行，句子留個缺口）。
+    inline_imgs = {str(k): str(v) for k, v in (ex.get("inline_images") or {}).items()}
 
     zf = zipfile.ZipFile(src)
     names = set(zf.namelist())
@@ -233,6 +239,14 @@ def run(cfg):
             continue
         body = soup.body or soup
         cur, title_buf, started = None, [], False
+        if prev_pat and chapters and any(j in href.lower() for j in prev_pat):
+            cur, started = chapters[-1], True
+        for im in body.find_all("img"):
+            name = os.path.basename(im.get("src") or "")
+            if name in inline_imgs and im.find_parent("p") is not None:
+                par = im.find_parent("p")
+                im.replace_with(inline_imgs[name])
+                par.smooth()
 
         def ensure():
             nonlocal cur, started

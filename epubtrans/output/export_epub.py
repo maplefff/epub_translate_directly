@@ -76,8 +76,11 @@ def inline(s):
 # item；build 把兩者放進同一個 <figure>，PDF 端才能把圖和圖說排在同一頁。
 # 掃描數學書（Griffiths）的圖說沒有冒號，只有「Figure 1.43」或「Table 6.1 Magnetic …」：編號後接句尾、
 # 或接大寫開頭的圖題才算；「Figure 3.27 summarizes …」這種內文句子不算。
+# 中文原書（美國貨幣史）的圖說是「圖1　1867-1960年的存款和通貨」：編號後隔一個空白才算，
+# 「圖1顯示……」這種內文句子不算；表名在表的上方，不是圖說，只認「圖」。
 _CAPTION = re.compile(r"^(?:Figure|Fig\.|Table)\s*[A-Z]?\d*(?:\.\d+)?\s*:"
-                      r"|^(?:Figure|Fig\.|Table)\s+[A-Z]?\d+(?:\.\d+)?(?:\s*$|\s+[A-Z(“\"])")
+                      r"|^(?:Figure|Fig\.|Table)\s+[A-Z]?\d+(?:\.\d+)?(?:\s*$|\s+[A-Z(“\"])"
+                      r"|^圖\s?[A-Z]?\d+(?:[.\-]\d+)?\s")
 
 
 def is_caption(items, n):

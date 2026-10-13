@@ -161,11 +161,11 @@ def main(argv=None):
     s.add_argument("--note", default="")
     s.set_defaults(fn=cmd_review)
     s = add("revise", "修改譯稿中的一句並記錄（舊字串須在該段恰好出現一次）")
-    s.add_argument("cid"); s.add_argument("idx", type=int)
-    s.add_argument("--old", required=True); s.add_argument("--new", required=True)
-    s.add_argument("--why", required=True)
-    s.set_defaults(fn=lambda a: __import__("epubtrans.qa.review", fromlist=["revise"]).revise(
-        _cfg(a), a.cid, a.idx, a.old, a.new, a.why))
+    s.add_argument("cid"); s.add_argument("idx", type=int, nargs="?")
+    s.add_argument("--old"); s.add_argument("--new")
+    s.add_argument("--why", help="修改理由（--batch 時是檔案裡沒寫理由的預設值）")
+    s.add_argument("--batch", help="一次套用多處：每行「段號<TAB>舊字串<TAB>新字串[<TAB>理由]」")
+    s.set_defaults(fn=cmd_revise)
     s = add("glossary", "譯名一致性檢查（只報告）")
     s.add_argument("--term", help="只看含這個字串的條目（原文、譯名或舊譯名）")
     s.add_argument("--all", action="store_true", dest="show_all", help="缺譯名全部列出（預設每條 5 筆）")
@@ -197,6 +197,15 @@ def main(argv=None):
 
     a = ap.parse_args(argv)
     a.fn(a)
+
+
+def cmd_revise(a):
+    from .qa import review
+    if a.batch:
+        return review.revise_batch(_cfg(a), a.cid, a.batch, a.why or "")
+    if a.idx is None or a.old is None or a.new is None or not a.why:
+        raise SystemExit("revise 需要 段號、--old、--new、--why（或用 --batch 檔案）")
+    review.revise(_cfg(a), a.cid, a.idx, a.old, a.new, a.why)
 
 
 def cmd_review(a):

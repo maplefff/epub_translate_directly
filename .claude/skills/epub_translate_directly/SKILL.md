@@ -110,7 +110,7 @@ Vision OCR 讀不了公式（獨立公式整條消失、∇ 讀成 V）。改走
 
 #### 接著（各種格式共通）
 - 依抽取結果調 `system_prompts.yaml`，改完重跑 extract：
-  - EPUB：`extract.heading_levels`（某 class 的標題當第幾層）、`extract.chapter_levels`（按章節 id 覆寫層級，同 class 卻不同層時用，例如第一章在第一部之前）、`skip_files`（會讓後面的章節 id 位移，要在寫譯稿前定案）、`join_next`（spine 檔名含這些字串、只有圖的頁併進下一章開頭，例如各部前的跨頁照片）、`title_items`（章名寫在正文開頭幾段 `<p>`、`<title>` 全書同名時，按章節 id 指定前幾段併成章名，例 `{c008: 2}`）。
+  - EPUB：`extract.heading_levels`（某 class 的標題當第幾層）、`extract.chapter_levels`（按章節 id 覆寫層級，同 class 卻不同層時用，例如第一章在第一部之前）、`skip_files`（會讓後面的章節 id 位移，要在寫譯稿前定案）、`join_next`（spine 檔名含這些字串、只有圖的頁併進下一章開頭，例如各部前的跨頁照片）、`join_prev`（spine 檔名含這些字串的文件接在前一章後面，calibre 從章中間切開、沒有章標題的後半）、`inline_images`（句中用圖片排的字，例如帶分數，`{圖檔名: 替代文字}` 換成文字留在段落裡）、`title_items`（章名寫在正文開頭幾段 `<p>`、`<title>` 全書同名時，按章節 id 指定前幾段併成章名，例 `{c008: 2}`）。
   - PDF：`pdf:`（見上）。
   - 同名章節標題：`book.title_overrides`。
 - 原書的封面頁（整章只有封面圖）不必跳過：build 會直接拿它當譯本封面、排在目錄前，PDF 端則略過不印。
@@ -189,6 +189,7 @@ Vision OCR 讀不了公式（獨立公式整條消失、∇ 讀成 V）。改走
 ```
 - 審閱時重點看：語意偏移或反轉、慣用語直譯、雙關、第二人稱與動物的代名詞（妳／牠）、和世界觀矛盾的字眼、原文錯字。
 - 改譯稿一律用 `revise`：舊字串在該段必須恰好出現一次才會替換，並把原句、新句、理由記進 `drafts/review_log.jsonl`。不要用 sed 改。
+- 一次改多處用 `revise "書名" c008 --batch 檔案 --why 理由`：每行「段號<TAB>舊字串<TAB>新字串[<TAB>理由]」，舊字串寫 `*` 是整段換掉。改完比對每段的數字、英文字與上標注號，有出入就印 ⚠，逐條確認沒有增刪資料。
 - 改到跨章的譯名，照〈改譯名〉做；改到譯例，同步更新 `translation_notes.md`。
 
 ### 驗收與出書
