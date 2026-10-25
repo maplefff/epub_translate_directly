@@ -17,6 +17,10 @@ _CHARMAP = str.maketrans({"​": "", "‌": "", "‍": "", "⁠": "", "﻿": "",
                           " ": " ", " ": " ", " ": " ", " ": " ", " ": " ",
                           "ﬀ": "ff", "ﬁ": "fi", "ﬂ": "fl", "ﬃ": "ffi", "ﬄ": "ffl", "ﬅ": "st", "ﬆ": "st"})
 MIN_IMAGE_AREA = 0.015      # 插圖至少佔頁面面積的比例；更小的多半是裝飾花紋
+MIN_IMAGE_PX = 8            # 點陣圖任一邊小於這個像素數，是拉伸的遮罩而不是圖
+FULL_PAGE_AREA = 0.85       # 圖蓋住頁面這個比例以上、而且頁上有正文，就是整頁掃描底圖
+MIN_SCAN_TEXT = 200         # 判斷底圖時，文字層至少要有這麼多字
+FIGURE_DPI = 220            # pdf.figure_boxes 裁出來的圖解析度（掃描底圖是 500 dpi 黑白，裁成 220 dpi 灰階列印才清楚）
 
 
 def normalize(text):
@@ -31,13 +35,13 @@ def text_chars(page):
     return len(re.sub(r"\s", "", page.get_text("text")))
 
 
-def read_page(page, pno, imgdir, seen_images):
+def read_page(page, pno, imgdir, seen_images, boxes=None):
     d = page.get_text("rawdict", flags=FLAGS)
     area = page.rect.width * page.rect.height
     lines, images = [], []
     for b in d["blocks"]:
         if b["type"] == 1:
-            img = _image(b, imgdir, seen_images, area)
+            img = _image(b, area)
             if img:
                 images.append(img)
             continue
@@ -47,21 +51,48 @@ def read_page(page, pno, imgdir, seen_images):
             ln = _line(l)
             if ln:
                 lines.append(ln)
+    images = _drop_page_scan(images, lines, area, force=bool(boxes))
+    for im in images:
+        im["file"] = _save(im.pop("data"), im.pop("ext"), imgdir, seen_images)
+    if boxes:                                    # pdf.figure_boxes：整頁掃描底圖上的圖表，手動框出來裁圖
+        rects = [pymupdf.Rect(*b) & page.rect for b in boxes]
+        inside = lambda ln: any(r.contains(pymupdf.Point((ln["x0"] + ln["x1"]) / 2, (ln["y0"] + ln["y1"]) / 2))
+                                for r in rects)
+        lines = [ln for ln in lines if not inside(ln)]
+        for k, r in enumerate(rects):
+            name = f"fig_p{pno + 1:04d}_{k}.jpg"
+            page.get_pixmap(dpi=FIGURE_DPI, clip=r).save(os.path.join(imgdir, name), jpg_quality=85)
+            images.append({"x0": r.x0, "y0": r.y0, "x1": r.x1, "y1": r.y1, "file": name})
     return {"no": pno, "w": page.rect.width, "h": page.rect.height, "mode": "text",
             "lines": lines, "images": images}
 
 
-def _image(b, imgdir, seen, page_area):
+def _drop_page_scan(images, lines, page_area, force=False):
+    """「整頁掃描圖＋隱形文字層」（ABBYY Paper Capture 之類）：蓋住整頁的底圖不是插圖，丟掉。
+    整頁都是圖、只有一點說明文字的圖版頁照留（文字不到 MIN_SCAN_TEXT 字）；
+    手動指定了 figure_boxes 的頁（force）一律丟，圖由框出來的範圍取代。"""
+    if not force and sum(len(ln["text"]) for ln in lines) < MIN_SCAN_TEXT:
+        return images
+    return [im for im in images
+            if (im["x1"] - im["x0"]) * (im["y1"] - im["y0"]) < FULL_PAGE_AREA * page_area]
+
+
+def _image(b, page_area):
     x0, y0, x1, y1 = b["bbox"]
     if (x1 - x0) * (y1 - y0) < MIN_IMAGE_AREA * page_area or not b.get("image"):
         return None
-    data, ext = b["image"], b.get("ext") or "png"
+    if min(b.get("width", MIN_IMAGE_PX), b.get("height", MIN_IMAGE_PX)) < MIN_IMAGE_PX:
+        return None                              # 1×1 的遮罩拉成大框（表格線、底色）：不是插圖
+    return {"x0": x0, "y0": y0, "x1": x1, "y1": y1, "data": b["image"], "ext": b.get("ext") or "png"}
+
+
+def _save(data, ext, imgdir, seen):
     h = hashlib.sha1(data).hexdigest()[:12]
     if h not in seen:
         seen[h] = f"img_{h}.{ext}"
         with open(os.path.join(imgdir, seen[h]), "wb") as f:
             f.write(data)
-    return {"x0": x0, "y0": y0, "x1": x1, "y1": y1, "file": seen[h]}
+    return seen[h]
 
 
 def _line(l):

@@ -32,7 +32,7 @@ NOTE_REF = re.compile(r"(?<=[^\s\d])(\d{1,3})(?=[\s,.;:!?’”)\]]|$)")
 class Stats:
     """一組頁面（同一來源：文字層或 OCR）的版面統計。"""
 
-    def __init__(self, pages):
+    def __init__(self, pages, para_indent="auto"):
         rows = [r for p in pages for r in p["rows"]]
         self.ocr = bool(pages) and pages[0]["mode"] == "ocr"
         if self.ocr:
@@ -69,6 +69,8 @@ class Stats:
         n_body = sum(self.is_body(r) for r in rows)
         # 縮排的行要夠多才算這本書用首行縮排（引文、清單的內縮不算）
         self.para_indent = indents.most_common(1)[0][0] if sum(indents.values()) >= max(5, 0.03 * n_body) else None
+        if para_indent != "auto":                       # pdf.para_indent：false＝全書沒有首行縮排；數字＝指定縮排量（點）
+            self.para_indent = float(para_indent) if para_indent else None
         # 左右對齊：長的正文行大多排到右邊界
         long_rows = [(p, r) for p in pages for r in p["rows"] if self.is_body(r) and len(r["text"]) > 30]
         full = sum(self.margins(p)[1] - r["x1"] < self.tol_edge for p, r in long_rows)
@@ -285,6 +287,9 @@ def take_footnotes(pages, stats_of, marks=None):
     start = _note_start if not marks else \
         lambda r: m if (m := _note_start(r)) and m.group(1).strip()[:1] in marks else None
     for p in pages:
+        if p.get("no_notes"):                   # pdf.no_footnote_pages：頁底的小字是表注、出處，不是註腳
+            last_page_had = False
+            continue
         rows, st = p["rows"], stats_of(p)
         small = lambda r: st.body * 0.5 < r["size"] < st.body * 0.9
         i = len(rows)
@@ -309,7 +314,10 @@ def take_footnotes(pages, stats_of, marks=None):
                     i, gap = j, 1.2
                     break
         zone = rows[i:]
-        ok = (zone and i > 0 and zone[0]["y0"] > 0.5 * p["h"]
+        # 註腳區通常在下半頁；文字層的頁面註腳很長時（編號開頭、或接續上一頁的註腳）可以占到頁面一半以上。
+        # OCR 頁的字級是估的，放寬會把正文尾巴誤吃成註腳，維持原規則
+        top = 0.25 if zone and not st.ocr and (start(zone[0]) or last_page_had) else 0.5
+        ok = (zone and i > 0 and zone[0]["y0"] > top * p["h"]
               and zone[0]["y1"] - rows[i - 1]["y1"] > gap * st.pitch
               and (start(zone[0]) or last_page_had or (st.ocr and not marks)))
         last_page_had = False
@@ -353,10 +361,39 @@ def is_toc_like(rows):
 
 
 # ── 6. 區塊 ──────────────────────────────────────────────────────────
-def page_blocks(p, st):
+FIGURE_TITLE = re.compile(r"^(figure|table|fig\.|chart|diagram)\b", re.I)
+
+
+def _alnum(t):
+    return re.sub(r"[^0-9a-z]", "", t.lower())
+
+
+def forced_heading_rows(rows, headings):
+    """pdf.headings：字層沒有粗體、字級資訊的書，章內小標由設定列出。回傳哪幾行（索引）是小標。
+    小標可以折成兩行；上標註腳標號、標點、大小寫不影響比對。"""
+    want = {_alnum(h) for h in headings or [] if _alnum(h)}
+    out = set()
+    if not want:
+        return out
+    for i in range(len(rows)):
+        acc = ""
+        for j in range(i, min(i + 3, len(rows))):
+            acc += _alnum(rows[j]["text"])
+            if acc in want:
+                out.update(range(i, j + 1))
+                break
+            if not any(w.startswith(acc) for w in want):
+                break
+    return out
+
+
+def page_blocks(p, st, headings=None):
     rows = p["rows"]
+    forced = forced_heading_rows(rows, headings)
     left, right = st.margins(p)
     width = max(right - left, 1)
+    # 懸掛縮排頁（pdf.hanging_pages）：條目頂格、續行內縮；每頁掃描位移不同，頂格位置取這頁最靠左的長行
+    hang_left = min((r["x0"] for r in rows if len(r["text"]) >= 10), default=left) if p.get("hanging") else left
     blocks = []
     for i, r in enumerate(rows):
         prev = rows[i - 1] if i else None
@@ -385,15 +422,17 @@ def page_blocks(p, st):
             head = r["size"] >= st.body * 1.18 or (
                 r["bold"] and len(r["text"]) < 100 and not r["text"].endswith((".", ","))
                 and (prev is None or r["y0"] - prev["y1"] > 0.6 * st.pitch)
-                and (nxt is None or nxt["y0"] - r["y1"] > 0.5 * st.pitch))
+                and (nxt is None or nxt["y0"] - r["y1"] > 0.5 * st.pitch)) or i in forced
         b = blocks[-1] if blocks else None
         if head:
             if b and b["type"] == "heading" and abs(b["size"] - r["size"]) < 0.08 * r["size"] \
                     and r["y1"] - b["rows"][-1]["y1"] < 2.2 * r["size"]:
                 b["rows"].append(r)
             else:
-                blocks.append({"type": "heading", "rows": [r], "size": r["size"], "minor": minor,
-                               "level": 3 if r["size"] >= st.body * 1.18 and not minor else 4})
+                is_forced = i in forced
+                blocks.append({"type": "heading", "rows": [r], "size": r["size"], "minor": minor, "forced": is_forced,
+                               "level": (4 if FIGURE_TITLE.match(r["text"]) else 3) if is_forced else
+                               3 if r["size"] >= st.body * 1.18 and not minor else 4})
             continue
         # 懸掛縮排的條目（「1. Karl R. Popper, …」下一行內縮）：條目裡、上一行排滿、這行內縮一到三個字 → 同一條
         if b and b["type"] == "para" and b.get("bullet") and not BULLET.match(r["text"]) \
@@ -405,8 +444,11 @@ def page_blocks(p, st):
         strong = STRONG_BULLET.match(r["text"]) is not None or (   # 條目裡、和條目左緣對齊的編號：下一條
             b is not None and b["type"] == "para" and b.get("bullet") and BULLET.match(r["text"]) is not None
             and abs(r["x0"] - b["rows"][0]["x0"]) < st.tol_indent)
-        new = b is None or b["type"] != "para" or strong or _starts_para(r, b["rows"][-1], st, left, right,
-                                                                           width, centered)
+        if p.get("hanging") and b is not None and b["type"] == "para" and not strong:
+            new = r["x0"] - hang_left < 0.5 * st.body       # 懸掛縮排的書目：頂格才是新條目，內縮的是上一條的續行
+        else:
+            new = b is None or b["type"] != "para" or strong or _starts_para(r, b["rows"][-1], st, left, right,
+                                                                               width, centered)
         bullet = strong or (new and BULLET.match(r["text"]) is not None)
         if new:
             blocks.append({"type": "para", "rows": [r], "size": r["size"], "bullet": bullet,
@@ -581,13 +623,17 @@ def continue_across_pages(blocks_by_page, stats_of, pages):
         # 頁首是插圖（日誌表、圖表）與小字圖說時，續段在它們後面：跳過去接，插圖留在接好的段落之後
         st = stats_of(p)
         k = 0
-        while k < len(bs) - 1 and (bs[k]["type"] == "image" or (
+        while k < len(bs) and (bs[k]["type"] == "image" or (
+                bs[k]["type"] == "heading" and bs[k].get("forced") and k + 1 < len(bs) and bs[k + 1]["type"] == "image") or (
                 bs[k]["type"] == "para" and bs[k]["rows"] and not st.is_body(bs[k]["rows"][0])
-                and bs[k]["rows"][0]["size"] < st.body and k > 0 and bs[k - 1]["type"] == "image")):
+                and bs[k]["rows"][0]["size"] < st.body and k > 0)):   # k>0：前面跳過的是圖（連同圖名、表注、出處，可接連幾行小字）
             k += 1
-        first = bs[k]
-        if last is not None and last["type"] in ("para", "quote") and first["type"] == last["type"] \
-                and last["rows"] and first["rows"]:
+        if k == len(bs):            # 整頁只有圖與它的圖名、表注：沒有續段，上一頁的段落照舊往後傳
+            first = None
+        else:
+            first = bs[k]
+        if first is not None and last is not None and last["type"] in ("para", "quote") \
+                and first["type"] == last["type"] and last["rows"] and first["rows"]:
             st = stats_of(p)
             left, _ = st.margins(p)
             left_a, right_a = stats_of(last_page).margins(last_page)
@@ -604,13 +650,31 @@ def continue_across_pages(blocks_by_page, stats_of, pages):
                 at_bottom = tail["y1"] >= stats_of(last_page).bottom - 2 * st.pitch or (
                     notes_top is not None and tail["y1"] >= notes_top - 3 * st.pitch)
                 unfinished = not ended and at_bottom and tail["x1"] - left_a >= 0.6 * (right_a - left_a)
-            if not indented and unfinished:
+            # 上一段沒有以句號之類收尾、下一頁頁首（不縮排）又以小寫字或引號後的小寫字開頭：句子還沒完，一定是續段
+            unfinished = unfinished or (not ended and head["text"].lstrip("'‘\"“(").startswith(tuple("abcdefghijklmnopqrstuvwxyz")))
+            if p.get("hanging") and last_page.get("hanging"):
+                # 懸掛縮排的書目：頁首內縮的行是上一頁最後一條的續行，頂格的才是新條目
+                hang_left = min((r["x0"] for r in p["rows"] if len(r["text"]) >= 10), default=left)
+                if head["x0"] - hang_left >= 0.5 * st.body:
+                    last["rows"].extend(first["rows"])
+                    bs.pop(k)
+            elif not indented and unfinished:
                 last["rows"].extend(first["rows"])
                 bs.pop(k)
         if bs:
+            st = stats_of(p)
+            furniture = lambda b: b["type"] == "image" or (b["type"] == "heading" and b.get("forced")) or (
+                b["type"] == "para" and b["rows"] and not st.is_body(b["rows"][0]) and b["rows"][0]["size"] < st.body)
             texts = [b for b in bs if b["type"] != "image"]
-            last = texts[-1] if texts and bs[-1]["type"] == "image" else bs[-1]   # 頁尾插圖之前的段落可能續到下一頁
-        last_page = p           # 整頁被接走時，段尾那一行也在這頁
+            if any(b.get("forced") for b in bs) and any(b["type"] == "image" for b in bs) \
+                    and all(furniture(b) for b in bs):
+                pass                # 整頁只有（pdf.headings 指定的）圖名、圖、表注、出處：上一頁的段落（last）照舊傳下去，續段在圖之後
+            elif bs[-1]["type"] == "image":                 # 頁尾插圖（連同它的圖名）之前的段落可能續到下一頁
+                while texts and texts[-1].get("forced"):
+                    texts.pop()
+                last, last_page = (texts[-1] if texts else bs[-1]), p
+            else:
+                last, last_page = bs[-1], p     # 整頁被接走時，段尾那一行也在這頁
 
 
 # ── 8. 切章 ──────────────────────────────────────────────────────────
@@ -885,7 +949,8 @@ def build(pages, outline, opts, book_title):
     for p in pages:
         if p["mode"] == "ocr":
             deskew(p)
-    stats = {mode: Stats([p for p in pages if p["mode"] == mode]) for mode in {p["mode"] for p in pages}}
+    stats = {mode: Stats([p for p in pages if p["mode"] == mode], opts.get("para_indent", "auto"))
+             for mode in {p["mode"] for p in pages}}
     stats_of = lambda p: stats[p["mode"]]
     report["removed_headers"] = strip_headers_footers(pages, stats_of)
     notes = take_footnotes(pages, stats_of, opts.get("footnote_marks")) if opts.get("footnotes", "end") != "keep" else []
@@ -902,7 +967,7 @@ def build(pages, outline, opts, book_title):
     soft = {m: sum(r["text"].endswith("\u00ad") for p in pages if p["mode"] == m for r in p["rows"]) >= 5
                or not _hyphenates(pages, m, vocab) for m in stats}
     mode_of = {p["no"]: p["mode"] for p in pages}
-    blocks_by_page = {p["no"]: page_blocks(p, stats_of(p)) for p in pages}
+    blocks_by_page = {p["no"]: page_blocks(p, stats_of(p), opts.get("headings")) for p in pages}
     continue_across_pages(blocks_by_page, stats_of, pages)
     blocks = [b for p in pages for b in blocks_by_page[p["no"]]]
     for b in blocks:

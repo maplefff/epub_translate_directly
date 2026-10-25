@@ -62,9 +62,10 @@ def index_zh(zh, entry):
 # 不直接把上標字元送進 EPUB：宋體、Charter 只有 ¹²³ 是上標字形，⁴–⁹ 由別的字型
 # 補字，大小、粗細、基線都對不齊（實測）。PDF 端由 read_translated_epub 把 <sup> 轉回上標字元，
 # 再交給 Typst 的 super 排。
+# 論文的引用清單「¹²,¹³,⁴⁰」「²⁻⁶」整串包成一個 <sup>12,13,40</sup>、<sup>2–6</sup>（範圍號用上標減號 ⁻ 寫）。
 SUPS = "⁰¹²³⁴⁵⁶⁷⁸⁹"
-_SUP_RUN = re.compile(f"[{SUPS}]+")
-_TO_DIGIT = str.maketrans(SUPS, "0123456789")
+_SUP_RUN = re.compile(f"[{SUPS}]+(?:[,⁻][{SUPS}]+)*")
+_TO_DIGIT = str.maketrans(SUPS + "⁻", "0123456789–")
 
 
 def inline(s):
@@ -78,7 +79,8 @@ def inline(s):
 # 或接大寫開頭的圖題才算；「Figure 3.27 summarizes …」這種內文句子不算。
 # 中文原書（美國貨幣史）的圖說是「圖1　1867-1960年的存款和通貨」：編號後隔一個空白才算，
 # 「圖1顯示……」這種內文句子不算；表名在表的上方，不是圖說，只認「圖」。
-_CAPTION = re.compile(r"^(?:Figure|Fig\.|Table)\s*[A-Z]?\d*(?:\.\d+)?\s*:"
+# Nature 的論文是「Fig. 1 | Experimental setup …」：編號後接直線也算。
+_CAPTION = re.compile(r"^(?:Figure|Fig\.|Table)\s*[A-Z]?\d*(?:\.\d+)?\s*[:|]"
                       r"|^(?:Figure|Fig\.|Table)\s+[A-Z]?\d+(?:\.\d+)?(?:\s*$|\s+[A-Z(“\"])"
                       r"|^圖\s?[A-Z]?\d+(?:[.\-]\d+)?\s")
 

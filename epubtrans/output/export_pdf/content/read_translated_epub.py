@@ -22,7 +22,7 @@ NOISE_CLASS = re.compile(r"kobo|pagebreak|page-?num", re.I)
 # 文字才能維持一個純字串走 JSON；book.typ 再用 show 規則把上標字元排成 super。
 SUPS = "⁰¹²³⁴⁵⁶⁷⁸⁹"
 _SPLIT = re.compile(r"^(.*)_split_(\d+)$")
-_TO_SUP = str.maketrans("0123456789", SUPS)
+_TO_SUP = str.maketrans("0123456789–-", SUPS + "⁻⁻")
 
 
 # 公式（掃描數學書）：build 把 LaTeX 轉成 MathML、annotation 附 TeX 原文。這裡取回 TeX：
@@ -58,7 +58,7 @@ def _math_to_text(soup, body):
 # 原書就是中文的 EPUB（只排版列印）常把注號寫成 <sup>[1]</sup> 或
 # <span class="math-super"><a href="#ff1">[1]</a></span>：方括號一併拿掉，照樣排成上標。
 # 注文開頭那個連回正文的「[1]」不在上標裡，維持原樣。
-_NOTE_REF = re.compile(r"^\[?(\d+)\]?$")
+_NOTE_REF = re.compile(r"^\[?(\d+(?:[,–-]\d+)*)\]?$")    # 論文的引用清單：12,13,40、2–6
 
 
 def _is_sup(tag):
@@ -266,6 +266,7 @@ class Epub:
                             if cap is not None:
                                 taken.add(id(cap))
                         if cap is not None:
+                            _sup_to_chars(cap)                 # 圖說裡的引用標號（Nature：「理論預測³⁵」）
                             blk["cap"] = _clean(cap.get_text(" ", strip=True))
                             if cap.get("id"):
                                 blk["id"] = _anchor("#" + cap["id"], href)

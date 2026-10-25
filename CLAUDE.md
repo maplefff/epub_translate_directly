@@ -20,7 +20,8 @@
 - 原書已是中文、只要列印：原書 EPUB 放在 `《書名》.epub`，`source_file`、`output_file` 都指向它，直接 `pdf`；**不要跑 `build`**（會覆寫原書）。見 skill〈原書已是中文：只排版列印〉。
 - `adept/` 是 Adobe 授權（ACSM 領書用的私鑰）：不可刪、不可外流、不讀出內容、不進版控。`acsm-register` 會在 Adobe 建帳號，只能由使用者自己執行。
 - PDF／掃描書：`extract` 後先看抽取摘要與 `work/extract_report.json`，用 `page` 抽查原頁；**結構定案才開始翻**（之後改抽取設定會讓章節 id、段落切點位移，drafts 對不上）。
-- 抽取不對改 `system_prompts.yaml` 的 `pdf:`；原文錯字（OCR 誤字、原書錯字）寫進 `drafts/source_fixes.yaml`。都不要直接改 `work/book.json`，下次 extract 會蓋掉。
+- 抽取不對改 `system_prompts.yaml` 的 `pdf:`；原文錯字（OCR 誤字、原書錯字）寫進 `drafts/source_fixes.yaml`（可用 `regex: true`；改成空字串＝拿掉該段）。都不要直接改 `work/book.json`，下次 extract 會蓋掉。
+- 「整頁掃描圖＋隱形文字層」的 PDF：底圖自動丟掉，圖表公式用 `pdf.figure_boxes` 手動框成圖；小標、懸掛縮排的書目、不是註腳的頁底小字，各有 `pdf.headings`／`hanging_pages`／`no_footnote_pages`／`para_indent`，見 skill〈原書是 PDF〉。
 - 掃描數學書：獨立公式不進譯稿，公式裡的英文說明（`\text{when}`、`\text{(Gauss's law)}`）寫進 `drafts/math_text.yaml` 中文化，build 時代換（EPUB 與 PDF 都套用）；沒有這個檔的書照原文。
 
 ## 指令

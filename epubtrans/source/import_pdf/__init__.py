@@ -19,14 +19,19 @@ DEFAULTS = {
     "skip_pages": [],          # 略過的頁（PDF 頁碼，從 1 起算），例：[1, 2, "5-8"]
     "cover_page": "auto",      # auto：第 1 頁幾乎只有圖就當封面；也可寫頁碼，或 null 表示沒有封面
     "columns": 1,              # 雙欄排版寫 2
+    "headings": [],            # 章內小標（字層沒有粗體、字級資訊時，逐條列出標題文字；折成兩行的也行）
+    "hanging_pages": [],       # 書目頁（條目頂格、續行內縮的懸掛縮排）：頂格才是新條目，例：["75-82"]
+    "para_indent": "auto",     # 首行縮排量（點）：auto 依全書統計；false＝沒有首行縮排（段距排版，統計被左緣抖動誤導時）
     "use_outline": True,       # 有 PDF 書籤就依書籤切章
     "chapter_levels": 2,       # 書籤前幾層當章節
     "heading_sizes": {},       # 沒有書籤時依字級切章，自動判斷不對就指定：{22: 1, 15: 2}（字級 pt → 層級，0＝不切）
     "chapters": [],            # 手動切章，優先於書籤：[{page: 12, title: "Chapter One", level: 1}]
     "footnotes": "end",        # end：收到該章結尾；drop：刪掉
+    "no_footnote_pages": [],   # 不找註腳的頁（頁底的小字是表注、出處；上一頁有註腳時，會被誤認成接續的註腳），例：[53]
     "footnote_marks": None,    # 只認這些標記開頭的註腳，例："*†"（頁底的編號清單、圖片出處被誤認成註腳時）
     "plate_pages": [],         # 掃描書的圖版頁：「Note(s):」以上整片當一張圖（圖表多、自動找圖切不好時），例：["195-204"]
-    "figure_boxes": {},        # 掃描書自動找圖失敗的頁，手動指定插圖範圍（PDF 點）：{286: [[117, 212, 512, 458]]}
+    "figure_boxes": {},        # 掃描書自動找圖失敗的頁，手動指定插圖範圍（PDF 點）：{286: [[117, 212, 512, 458]]}；vlm 模式：有列的頁不用自動分組，[]＝沒有圖
+    "running_heads": [],       # vlm 模式：頁首頁尾的正則（整段符合），例：["Article", "(\\d+ \\| )?Nature \\| Vol .*"]
     "framed_figures": False,
     "drop_lines": [],          # OCR 雜訊行（透印、污漬讀成的亂碼），分段前拿掉：[{page: 151, text: "patre the"}]   # 掃描書裡有框線的表格整塊當圖（框起來的引文不算：框裡幾乎都是長行）
     "skip_toc_pages": True,    # 略過原書的目錄頁與索引頁（大半行以頁碼結尾的頁）
@@ -113,12 +118,13 @@ def run(cfg):
         return _run_vlm(cfg, doc, skip, cover, imgdir)
 
     pages, seen, ocr_pages = [], {}, []
+    boxes = {int(k) - 1: v for k, v in (opts.get("figure_boxes") or {}).items()}
     for pno in range(len(doc)):
         if pno in skip:
             continue
         page = doc[pno]
         if _page_mode(page, opts) == "text":
-            pages.append(textlayer.read_page(page, pno, imgdir, seen))
+            pages.append(textlayer.read_page(page, pno, imgdir, seen, boxes.get(pno)))
         else:
             ocr_pages.append(pno)
     if ocr_pages:
@@ -127,6 +133,11 @@ def run(cfg):
     ocr_figures = [(p["no"] + 1, len(p["images"]), p.get("dropped_in_figures", 0))
                    for p in pages if p["mode"] == "ocr" and p["images"]]
 
+    hanging = parse_pages(opts["hanging_pages"], len(doc))
+    no_notes = parse_pages(opts["no_footnote_pages"], len(doc))
+    for p in pages:
+        p["hanging"] = p["no"] in hanging
+        p["no_notes"] = p["no"] in no_notes
     meta = doc.metadata or {}
     title = cfg.book.get("title") or meta.get("title") or cfg.name
     chapters, report = structure.build(pages, doc.get_toc(simple=False), opts, title)

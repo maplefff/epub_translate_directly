@@ -83,6 +83,7 @@ def main():
     ap.add_argument("--model", default=MODEL)
     ap.add_argument("--batch", type=int, default=1)
     ap.add_argument("--no-guard", action="store_true")
+    ap.add_argument("--prompt", default=PROMPT_FILE, help="轉寫提示詞檔（書本目錄有 vlm_ocr_prompt.txt 時由 vlm-ocr 傳入）")
     a = ap.parse_args()
 
     import pymupdf
@@ -92,7 +93,7 @@ def main():
     from mlx_vlm.sample_utils import make_logits_processors
     from mlx_vlm.utils import load_config, get_model_path, load_model
 
-    prompt_text = open(PROMPT_FILE, encoding="utf-8").read().strip()
+    prompt_text = open(a.prompt, encoding="utf-8").read().strip()
     key = {"v": VERSION, "model": a.model, "layout": LAYOUT_MODEL,
            "prompt": hashlib.sha1(prompt_text.encode()).hexdigest()[:12]}
     os.makedirs(a.cache, exist_ok=True)

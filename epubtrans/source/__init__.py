@@ -8,15 +8,17 @@
 抽完之後套用 drafts/source_fixes.yaml 的原文校正（OCR 誤字、原書錯字）。校正檔是人工成果，
 放在 drafts/；每次 extract 都重新套用，所以重抽不會洗掉。
 """
-import os
+import os, re
 from collections import Counter
 
 FIXES = "source_fixes.yaml"
 SAMPLE = """\
 # 原文校正：extract 抽完後套用。old 在該段必須出現；page 是 PDF 原書頁碼，省略＝全書套用。
 # 翻譯前就要校好：改到段落開頭會讓已寫的譯稿對位不上。
+# regex: true 時 old 是正則、new 可用 \\1 參照分組（OCR 的系統性錯誤，例：每個 t 後面多一個點）。
 - {page: 14, old: "another?", new: "another.’"}
 - {old: "Cornplain", new: "Complain"}
+- {old: "(?<=[a-z])t\\.(?=[a-z])", new: "t", regex: true}
 """
 
 
@@ -47,13 +49,20 @@ def apply_source_fixes(cfg):
         if not old or new is None:
             raise SystemExit(f"{FIXES} 第 {k + 1} 條缺 old 或 new：{f}\n格式範例：\n\n{SAMPLE}")
         on = lambda x: page is None or (x.get("page") or 0) <= page <= (x.get("page_end") or x.get("page") or 0)
+        if f.get("regex"):
+            pat = re.compile(old)
+            find = pat.search
+            sub = lambda t: pat.sub(new, t)
+        else:
+            find = lambda t: old in t
+            sub = lambda t: t.replace(old, new)
         for c in book["chapters"]:
-            if old in (c.get("title") or "") and on(c):
-                c["title"] = c["title"].replace(old, new)
+            if find(c.get("title") or "") and on(c):
+                c["title"] = sub(c["title"])
                 hits[k] += 1
             for it in c["items"]:
-                if old in (it.get("text") or "") and on(it):
-                    it["text"] = it["text"].replace(old, new)
+                if find(it.get("text") or "") and on(it):
+                    it["text"] = sub(it["text"])
                     hits[k] += 1
             # 校正成空字串的段落拿掉（OCR 把一段拆錯時，把內容併到另一段、這段改成空的）
             c["items"] = [it for it in c["items"] if it["type"] in ("image", "figrow") or (it.get("text") or "").strip()]

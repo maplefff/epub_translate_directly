@@ -15,9 +15,10 @@ import json, os, re
 LAYOUT_MIN = 0.5                  # 版面框信心門檻（快取存到 0.3）
 CROP_LABELS = ("image", "chart", "table")
 # 編號後的句點不能接數字：不然「Figure 3.18 is a plot …」會在「Figure 3.」回溯成圖說（第 147、170 頁）
-CAPTION = re.compile(r"^(Figure|Fig\.|Table)\s+[A-Z]?\d+(\.\d+)?(\s*[:.](?!\d)|\s*$|\s+[A-Z(“\"])")
+CAPTION = re.compile(r"^(Figure|Fig\.|Table)\s+[A-Z]?\d+(\.\d+)?(\s*[:.|](?!\d)|\s*$|\s+[A-Z(“\"])")   # Nature：「Fig. 1 | …」
 TERMINAL = tuple(".!?:;\"'”’)]…")
 SUP = str.maketrans("0123456789", "⁰¹²³⁴⁵⁶⁷⁸⁹")
+SUP_CITE = str.maketrans("0123456789-–", "⁰¹²³⁴⁵⁶⁷⁸⁹⁻⁻")   # 引用清單：數字與範圍號，逗號照舊
 HEADER = re.compile(r"^(\d{1,3}\s+)?((CHAPTER|APPENDIX)\s+[\dA-Z]+\.?\s.*|INDEX|CONTENTS|"
                     r"[\dA-Z]+(\.\d+)*\.\s+[A-Z][A-Z0-9 ,.'’\-:/()&]+)(\s+\d{1,3})?$")
 # 標題的角色看編號，不看 # 的數量：VLM 在章首頁會把層級整個往下移一階（## 1.1、### 1.1.1）
@@ -89,17 +90,18 @@ def clean_inline(text):
     parts = []
     for is_math, s in _split_math(text):
         if is_math:
-            m = re.fullmatch(r"\$\s*\^\{?(\d{1,3})\}?\s*\$", s)       # $^5$、$^{15}$：註腳標號
-            parts.append(m.group(1).translate(SUP) if m else s)
+            # $^5$、$^{15}$：註腳標號；論文的引用清單 $^{12,13,40}$、$^{36-39}$ 也一樣（範圍號用上標減號）
+            m = re.fullmatch(r"\$\s*\^\{?(\d{1,3}(?:\s*[,\-–]\s*\d{1,3})*)\}?\s*\$", s)
+            parts.append(re.sub(r"\s+", "", m.group(1)).translate(SUP_CITE) if m else s)
             continue
         s = re.sub(r"<sup>(\d{1,3})</sup>", lambda m: m.group(1).translate(SUP), s)
         s = re.sub(r"\^\{?(\d{1,3})\}?", lambda m: m.group(1).translate(SUP), s)
-        s = re.sub(r"\*\*(.+?)\*\*", r"\1", s)
+        s = s.replace("**", "")                 # 粗體可能跨過公式（「**Fig. 2 | … $x$.**」），成對的、落單的都拿掉
         s = re.sub(r"(?<![\w*])\*(?=\S)(.+?)(?<=\S)\*(?![\w*])", r"\1", s)
         s = re.sub(r"<[^>]+>", "", s)
         parts.append(s)
     out = "".join(parts)
-    out = re.sub(r"\s+([⁰¹²³⁴⁵⁶⁷⁸⁹]+)(?=[\s,.;:)]|$)", r"\1", out)      # 「H: ⁵」→「H:⁵」
+    out = re.sub(r"\s+([⁰¹²³⁴⁵⁶⁷⁸⁹][⁰¹²³⁴⁵⁶⁷⁸⁹⁻,]*)(?=[\s,.;:)]|$)", r"\1", out)      # 「H: ⁵」→「H:⁵」
     return re.sub(r"\s+", " ", out).strip()
 
 
@@ -163,17 +165,26 @@ def parse_markdown(md):
             if h:
                 blocks.append({"kind": "heading", "level": len(h.group(1)), "text": clean_inline(h.group(2))})
                 continue
+            # 期刊圖說的分圖（「**d**, Examples …」）VLM 常另起一行：緊接在圖說後面就併回圖說
+            if re.match(r"\*\*[a-z]\*\*\s*[,.]?\s", t) and blocks and blocks[-1]["kind"] == "para" \
+                    and CAPTION.match(blocks[-1]["text"]):
+                blocks[-1]["text"] += " " + clean_inline(t)
+                continue
             t = re.sub(r"^[*\-]\s{1,}(?=\S)", "• ", t)                     # VLM 的清單符號（原書習題前的 •）
             blocks.append({"kind": "para", "text": clean_inline(t)})
     return [b for b in blocks if b["kind"] in ("math", "fig", "table") or b.get("text")]
 
 
-def strip_header(blocks):
-    """頁首的書眉（章名＋頁碼）、單獨的頁碼。VLM 提示要它別寫，偶爾還是會寫。"""
+def strip_header(blocks, heads=()):
+    """頁首的書眉（章名＋頁碼）、單獨的頁碼。VLM 提示要它別寫，偶爾還是會寫。
+    heads：書本設定的頁首頁尾（pdf.running_heads，例如期刊論文的「Article」「68 | Nature | Vol 643 | …」），
+    在頁首或頁尾的整段符合就拿掉；要在接跨頁段落之前拿，頁尾擋在頁末會讓段落接不起來。"""
+    run = lambda b: b["kind"] in ("para", "heading") and any(h.fullmatch(b["text"]) for h in heads)
     while blocks and blocks[0]["kind"] in ("para", "heading") and (
-            HEADER.match(blocks[0]["text"]) or re.fullmatch(r"[\divxlc]{1,4}", blocks[0]["text"])):
+            HEADER.match(blocks[0]["text"]) or re.fullmatch(r"[\divxlc]{1,4}", blocks[0]["text"]) or run(blocks[0])):
         blocks = blocks[1:]
-    while blocks and blocks[-1]["kind"] == "para" and re.fullmatch(r"[\divxlc]{1,4}", blocks[-1]["text"]):
+    while blocks and blocks[-1]["kind"] in ("para", "heading") and (
+            re.fullmatch(r"[\divxlc]{1,4}", blocks[-1]["text"]) or run(blocks[-1])):
         blocks = blocks[:-1]
     return blocks
 
@@ -347,23 +358,34 @@ def _ocr_caption(page, bbox, dpi):
     return re.sub(r"\s+", " ", text) or None
 
 
-def crop_figures(page, data, pno, imgdir):
+def crop_figures(page, data, pno, imgdir, manual=None):
     """版面框分組後裁成 PNG（原書解析度）；回傳依閱讀順序排的 [{file, label, y, cap, row}]。
 
-    圖說框先全部用 Vision 讀：分組要靠文字分出「(a)」「(b)」這種格子小標（併進圖裡一起裁，不當圖說）。"""
+    圖說框先全部用 Vision 讀：分組要靠文字分出「(a)」「(b)」這種格子小標（併進圖裡一起裁，不當圖說）。
+    manual：這頁手動指定的圖框（pdf.figure_boxes，PDF 點 [x0, y0, x1, y1]），有就不用版面模型分組；
+    空清單＝這頁沒有圖。期刊論文的多面板圖（a–e 各有座標軸）自動分組會拆成好幾塊。"""
     import pymupdf
     W, H, pad = page.rect.width, page.rect.height, 2
     dpi = data.get("dpi") or 200
-    layout = [dict(x, text=_ocr_caption(page, x["bbox"], dpi))
-              if x["label"] == "figure_title" and x["score"] >= LAYOUT_MIN else x for x in data["layout"]]
+    if manual is not None:
+        groups = [{"label": "image", "bbox": [y0 * 1000 / H, x0 * 1000 / W, y1 * 1000 / H, x1 * 1000 / W],
+                   "cap": None, "row": f"m{k}"} for k, (x0, y0, x1, y1) in enumerate(manual)]
+    else:
+        layout = [dict(x, text=_ocr_caption(page, x["bbox"], dpi))
+                  if x["label"] == "figure_title" and x["score"] >= LAYOUT_MIN else x for x in data["layout"]]
+        groups = group_figures(layout)
+    # 整頁掃描圖（黑白掃描書）裁成灰階；向量繪製的頁（期刊論文的彩色圖表，圖說靠顏色區分曲線）照原色裁
+    area = page.rect.width * page.rect.height
+    scanned = any(page.get_image_bbox(im).get_area() > 0.8 * area for im in page.get_images(full=True))
+    cs = pymupdf.csGRAY if scanned else pymupdf.csRGB
     out = []
-    for k, g in enumerate(group_figures(layout)):
+    for k, g in enumerate(groups):
         y0, x0, y1, x1 = g["bbox"]                     # 0～1000，相對頁面
         r = pymupdf.Rect(x0 * W / 1000 - pad, y0 * H / 1000 - pad, x1 * W / 1000 + pad, y1 * H / 1000 + pad) & page.rect
         if r.width < 10 or r.height < 10:
             continue
         fn = f"p{pno + 1:04d}_{k + 1}.png"
-        pix = page.get_pixmap(dpi=dpi, clip=r, colorspace=pymupdf.csGRAY)
+        pix = page.get_pixmap(dpi=dpi, clip=r, colorspace=cs)
         pix.set_dpi(dpi, dpi)                      # PNG 記下原書解析度：PDF 可照原書實際尺寸印（print.image_natural）
         pix.save(os.path.join(imgdir, fn))
         out.append({"file": fn, "label": g["label"], "y": (y0 + y1) / 2000, "cap": g["cap"], "row": g["row"]})
@@ -517,6 +539,9 @@ def build_book(cfg, doc, pages, imgdir):
     report = {"figure_mismatch": [], "loop_stopped": [], "truncated": [], "math": 0, "inline_math": 0,
               "untagged_math": 0, "images": 0}
     seq = []                                       # [(pno, block)]
+    opts = cfg.get("pdf", default={}) or {}
+    heads = [re.compile(h) for h in opts.get("running_heads") or []]
+    boxes = {int(k) - 1: v or [] for k, v in (opts.get("figure_boxes") or {}).items()}
     for pno, data in pages:
         if data.get("loop_stopped"):
             report["loop_stopped"].append(pno + 1)
@@ -524,8 +549,8 @@ def build_book(cfg, doc, pages, imgdir):
             report["truncated"].append(pno + 1)
         if BLANK_PAGE.match(data["md"].strip()):
             continue
-        blocks = strip_header(parse_markdown(data["md"]))
-        crops = crop_figures(doc[pno], data, pno, imgdir)
+        blocks = strip_header(parse_markdown(data["md"]), heads)
+        crops = crop_figures(doc[pno], data, pno, imgdir, boxes.get(pno))
         blocks, ok = place_figures(blocks, crops)
         if not ok:
             report["figure_mismatch"].append(pno + 1)
@@ -586,6 +611,12 @@ def build_book(cfg, doc, pages, imgdir):
             continue
         if cur is None:
             open_chapter("", 1, pno)
+        # 手動切章：章名用設定的，章首重複章名的標題拿掉
+        norm = lambda t: re.sub(r"\W+", "", t or "").lower()
+        if cur.get("_manual") is not None and not cur["items"] and b["kind"] == "heading" \
+                and norm(b["text"]) == norm(cur["title"]):
+            k += 1
+            continue
         if b["kind"] == "note":
             notes.append(dict(b, page=pno + 1))
         elif b["kind"] == "image":

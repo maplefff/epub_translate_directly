@@ -61,6 +61,10 @@ def cmd_vlm_ocr(a):
     args = [py, worker, cfg.source_file(), cfg.wpath("vlm"), "--batch", str(a.batch)]
     if a.pages:
         args += ["--pages", a.pages]
+    own = os.path.join(cfg.dir, "vlm_ocr_prompt.txt")     # 書本專屬的提示詞（論文、非教科書版面），取代全域的
+    if os.path.exists(own):
+        args += ["--prompt", own]
+        print(f"提示詞：{own}")
     # 多個程序各自搶頁（vlm_worker 用鎖檔分工），錯開幾秒啟動，免得同時載入模型
     import time
     procs = []

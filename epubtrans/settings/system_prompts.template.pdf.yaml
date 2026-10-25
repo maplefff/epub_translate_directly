@@ -18,4 +18,6 @@ pdf:
   # plate_pages: []    # 掃描書的圖版頁：「Note(s):」以上整片當一張圖（圖表多、自動找圖切不好時），例：["195-204"]
   # framed_figures: false   # 掃描書裡有框線的表格整塊當圖（框起來的引文不算）
   # figure_boxes: {}    # 自動找圖失敗的頁，手動指定插圖範圍（PDF 點，x0 y0 x1 y1）：{286: [[117, 212, 512, 458]]}
+  #                     # mode: vlm 時：有列的頁就不用版面模型分組（期刊的多面板圖會被拆開），[]＝這頁沒有圖
+  # running_heads: []   # mode: vlm 時，頁首頁尾的正則（整段符合就拿掉）：["Article", '(\d+ \| )?Nature \| Vol .*']
   # drop_lines: []      # OCR 雜訊行（透印、污漬讀成的亂碼），分段前拿掉：[{page: 151, text: "patre the"}]

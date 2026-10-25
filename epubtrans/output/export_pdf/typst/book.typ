@@ -70,9 +70,10 @@
 // 大小、基線都對不齊。typographic: false ＝ 一律用 Charter 的正常數字縮小上移，
 // 十位數的注號（¹²）才不會半邊是上標字形、半邊是合成的。行框已固定 1em，
 // 上移的小字不會把行距撐開（實測行距與無注號的段落相同）。
+// 論文的引用清單（¹²,¹³,⁴⁰、²⁻⁶）整串一起上移：逗號照舊、⁻ 排成短連接號。
 #let sups = "⁰¹²³⁴⁵⁶⁷⁸⁹".clusters()
-#show regex("[⁰¹²³⁴⁵⁶⁷⁸⁹]+"): it => super(typographic: false,
-  it.text.clusters().map(c => str(sups.position(x => x == c))).join())
+#show regex("[⁰¹²³⁴⁵⁶⁷⁸⁹]+(?:[,⁻][⁰¹²³⁴⁵⁶⁷⁸⁹]+)*"): it => super(typographic: false,
+  it.text.clusters().map(c => if c == "," { "," } else if c == "⁻" { "–" } else { str(sups.position(x => x == c)) }).join())
 
 // 行框固定 1em 之後，行距就精確等於 1em + leading。
 // spacing 設成與 leading 相同 ＝ 段落之間不另外留空：中文書靠首行縮排分段，
@@ -272,12 +273,19 @@
 // （圖 2.2 前空了 101mm），圖說還會和圖分在兩頁。
 // 圖說與正文同字級，行距格線不斷；浮動塊與正文之間空出正好一行
 // （圖說基線到正文基線 = 兩行），逐頁驗證的行距檢查才量得準。
+// 圖說一行放得下就置中（Griffiths「Figure 1.7」）；超過一行就左右對齊排滿：
+// 期刊論文的圖說長達十幾行，逐行置中會兩邊都參差（行內公式讓每行長短不一）。
 #let fig-cell(b) = {
   align(center, fig-image(b.file))
   let cap = b.at("cap", default: none)
   if cap != none {
     v(0.6em)
-    align(center, tagged(par(rich(cap)), b))
+    layout(size => if measure(rich(cap)).width <= size.width {
+      align(center, tagged(par(rich(cap)), b))
+    } else {
+      set par(justify: true)
+      tagged(par(rich(cap)), b)
+    })
   }
 }
 // 圖列（掃描數學書裡各有圖說的並排圖）：等寬欄並排，底端對齊，圖說才會在同一行
