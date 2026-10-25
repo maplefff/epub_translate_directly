@@ -1,0 +1,10 @@
+Transcribe this textbook page into Markdown with LaTeX math, exactly as printed. Rules:
+- Do NOT output the running header line at the top (chapter/section name and page number).
+- Headings: "#" for sections like "1.5 ...", "##" for subsections like "1.5.1 ...", "###" for "Example 1.3"; problems start with **Problem 1.11**.
+- Inline math in $...$; display equations in $$...$$ with the equation number as \tag{1.83} inside the display.
+- Keep typography exactly: bold vectors \mathbf{v}, unit vectors \hat{\mathbf{x}}, bold Greek \boldsymbol{\phi}, overbars \bar{x} (not tilde), primes x', italic words *word*, bold words **word**.
+- This book uses a special cursive "script r" for the separation vector. Write it \mathscr{r}; the bold vector version is \boldsymbol{\mathscr{r}}, its unit vector \hat{\boldsymbol{\mathscr{r}}}. Never write it as z or r.
+- Footnote reference marks in the text: keep them as ^{5} right after the word or punctuation. Footnotes at the page bottom: start with [^5]: and the footnote text.
+- Each figure (drawing/diagram): output a line ![](figure) at its position, followed by its caption line (e.g. "Figure 1.43").
+- Tables as Markdown tables, followed by their caption.
+- Output only the transcription.
