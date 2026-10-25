@@ -848,13 +848,23 @@ def _number(t, roman):
 
 def _repair_numbering(blocks, starts, inferred, roman):
     """OCR 讀章號常漏一劃（PART II → PART I）或整個漏掉（部名後的第一章 I）。編號應該連續：
-    部號沒遞增就改成前一部加一；部名之後第一個章號是 2，就在第一段正文前補第 1 章。都記進推定章名。"""
+    部號沒遞增就改成前一部加一；部名之後第一個章號是 2，就在第一段正文前補第 1 章。
+    章號讀成不合法的羅馬數字（III → ILI）就改成前一章加一。都記進推定章名。"""
     order = sorted(starts)
-    last_part = 0
+    last_part, prev = 0, None
     for k, i in enumerate(order):
         lv, title, consumed = starts[i]
         if not PART_PAT.match(title):
+            t = re.sub(r"[1l|]", "I", title.strip().upper())
+            if roman and re.fullmatch(r"[IVXLC]+", t) and _roman(_from_roman(t)) != t:
+                fixed = _next_number(prev, roman)
+                if fixed:
+                    starts[i] = (lv, fixed, consumed)
+                    inferred.append((blocks[i]["page"] + 1, fixed))
+                    title = fixed
+            prev = title
             continue
+        prev = None
         n = _number(title, True)
         if n is not None and n <= last_part:
             fixed = re.sub(r"\S+$", _roman(last_part + 1), title)

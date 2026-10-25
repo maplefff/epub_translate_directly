@@ -78,7 +78,7 @@ epub_translate_directly/
 │       ├── system_prompts.template.yaml   init 產生書本設定用的範本
 │       └── system_prompts.template.pdf.yaml   原檔是 PDF 時 init 附上的 pdf: 設定說明
 ├── tests/                    test_naming.py、test_fetch_acsm.py（離線）、test_import_pdf.py、test_vlm.py、test_layout.py；
-│                             fixtures/：make_test_pdfs.py 與兩種英文版面的 Typst 模板（產生 PDF 測試書）
+│                             fixtures/：non_stop/（《不停》約 25 頁節錄，make_excerpt.py 產生）、make_test_pdfs.py 與兩種英文版面的 Typst 模板（產生 PDF 測試書）
 ├── experiments/              latex_ocr/（OCR 模型比較與報告）、layout_compare/（版面模型比較）
 ├── adept/                    Adobe 授權檔（device.xml、activation.xml、devicesalt），ACSM 領書用；不進版控
 └── process/《中文書名 原文書名》/   一本書一個目錄（`_` 開頭的不是書，是備份之類）；整個目錄不進版控
@@ -132,4 +132,5 @@ epub_translate_directly/
 掃描 PDF 的 OCR 用 macOS 內建的 Vision（pyobjc），只能在 macOS 上跑。
 測試：`./.venv/bin/python tests/test_naming.py`、`tests/test_fetch_acsm.py`（離線）、
 `tests/test_pipeline.py`（合成小書走完 extract→build→pdf，需要 typst）、`tests/test_vlm.py`（掃描數學書：VLM 快取 → book.json → MathML，不載模型）、`tests/test_index.py`（書末索引：解析、對位、EPUB 連結、PDF 頁碼）、
-`tests/test_import_pdf.py`（先跑 `tests/fixtures/make_test_pdfs.py` 與 `--style b` 產生兩種版面的測試書，各含文字層版與掃描版）。
+`tests/test_import_pdf.py`（先跑 `tests/fixtures/make_test_pdfs.py` 與 `--style b`，用 `tests/fixtures/non_stop/` 的節錄產生兩種版面的測試書，各含文字層版與掃描版；給書本目錄改用整本原書）。
+安裝細節（系統需求、選用的數學書環境、模型下載）見 README〈安裝〉。

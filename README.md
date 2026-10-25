@@ -45,16 +45,60 @@
 PDF 排版移植自 `~/Program/epub2print`（Typst）；以原版的 ISO-B5 手調數字重排，
 186 頁逐頁文字與原版完全相同。
 
-## 環境
+## 安裝
+
+### 系統需求
+
+- **macOS、Apple Silicon（M 系列）**，另需 [Homebrew](https://brew.sh)。只在這個環境測過（M5 Max、macOS 27、Python 3.12、Typst 0.15.1）。
+  綁定 macOS 的部分：掃描 PDF 的 OCR 用 macOS 內建的 Vision（pyobjc）；`vlm-ocr` 用 mlx，只能在 Apple Silicon 跑；
+  PDF 預設字型 Songti TC（宋體）、Charter 與 EPUB 嵌入的數學字型 STIX Two Math 都是 macOS 內建字型。
+  Linux 或 Intel Mac 沒測過：EPUB 與文字層 PDF 的抽取、`merge`、`build` 理論上可行，掃描書不行，排 PDF 要自備字型並改 `epubtrans/settings/print_profile.yaml`。
+- 翻譯本身由 Claude Code 在對話中完成，不需要 API 金鑰。用 Claude Code 開啟這個目錄就會載入 `CLAUDE.md` 與 skill `epub_translate_directly`；其他 agent 見 `AGENTS.md`。
+
+### 基本安裝（EPUB、PDF、掃描 PDF、ACSM、排版成 PDF）
 
 ```bash
-brew install typst
-/opt/homebrew/bin/python3.12 -m venv .venv && ./.venv/bin/pip install -r requirements.txt
+brew install python@3.12 typst
+/opt/homebrew/bin/python3.12 -m venv .venv
+./.venv/bin/pip install -r requirements.txt
+```
+
+- 第一次排 PDF 時，Typst 會從 Typst Universe 下載公式套件 `@preview/mitex`（要連網，之後有快取）。
+- 中文字型：`./.venv/bin/python -m epubtrans fonts` 列出 Typst 找得到的字型；要換就改 `print_profile.yaml` 的 `cjk_font`、`latin_font`，或 `pdf --cjk-font`。
+- ACSM 領書：`adept/` 放 Adobe 授權，第一次要由使用者自己跑 `acsm-register` 註冊匿名 Adobe ID（會在 Adobe 建帳號）。`adept/` 不進版控、不可外流。
+
+### 選用：數學書
+
+原書有公式（掃描數學書、期刊論文）時才需要。
+
+```bash
+# EPUB 的公式轉 MathML（temml）
+brew install node
+npm install --prefix epubtrans/output/js
+
+# 掃描數學書的整頁 OCR（vlm-ocr）：獨立的環境，避免和主環境的套件衝突
+/opt/homebrew/bin/python3.12 -m venv .venv-vlm
+.venv-vlm/bin/pip install -r requirements-vlm.txt
+```
+
+`vlm-ocr` 第一次執行會從 Hugging Face 下載 `mlx-community/Qwen3.5-27B-8bit`（約 28GB）與版面模型 `HashNuke/pp-doclayout-v3-mlx`。
+每個 worker 約占 28GB 記憶體（`--workers 3` 要 96GB 以上），整本書要跑數小時，可中斷續跑。
+
+### 測試
+
+```bash
 ./.venv/bin/python tests/test_naming.py
-./.venv/bin/python tests/test_fetch_acsm.py
-./.venv/bin/python tests/test_pipeline.py      # 合成小書走完 extract→build→pdf（需要 typst）
-./.venv/bin/python tests/test_index.py         # 書末索引：解析、對位、EPUB 連結、PDF 頁碼（需要 typst）
-./.venv/bin/python tests/fixtures/make_test_pdfs.py             # 用《不停 Non-Stop》產生測試書：小說版面（需先 extract 原書）
-./.venv/bin/python tests/fixtures/make_test_pdfs.py --style b   # 第二種版面：段落不縮排、右邊參差、章不換頁、沒有書籤
+./.venv/bin/python tests/test_fetch_acsm.py     # 離線
+./.venv/bin/python tests/test_pipeline.py       # 合成小書走完 extract→build→pdf（需要 typst）
+./.venv/bin/python tests/test_index.py          # 書末索引：解析、對位、EPUB 連結、PDF 頁碼（需要 typst）
+./.venv/bin/python tests/test_layout.py
+./.venv/bin/python tests/test_vlm.py            # 掃描數學書：VLM 快取 → book.json → MathML（不載模型；需要 node／temml）
+
+# PDF 抽取：用 tests/fixtures/non_stop/（《不停 Non-Stop》約 25 頁的節錄）排出兩種版面的測試書，
+# 各有文字層版與掃描版，產物放在 process/（不進版控）。掃描版走 macOS Vision OCR
+./.venv/bin/python tests/fixtures/make_test_pdfs.py             # 版面 A：小說版面
+./.venv/bin/python tests/fixtures/make_test_pdfs.py --style b   # 版面 B：段落不縮排、右邊參差、章不換頁、沒有書籤
 ./.venv/bin/python tests/test_import_pdf.py
 ```
+
+手上有整本原書時，可以用整本產生測試書：先 `extract` 原書，再 `make_test_pdfs.py "《不停 Non-Stop》"`。

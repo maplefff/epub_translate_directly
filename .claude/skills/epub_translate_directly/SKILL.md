@@ -289,7 +289,7 @@ epub_translate_directly/
 │       ├── system_prompts.template.yaml   init 產生書本設定用的範本
 │       └── system_prompts.template.pdf.yaml   原檔是 PDF 時 init 附上的 pdf: 設定說明
 ├── tests/                    test_naming.py、test_fetch_acsm.py（離線）、test_import_pdf.py、test_vlm.py、test_layout.py；
-│                             fixtures/：make_test_pdfs.py 與兩種英文版面的 Typst 模板（產生 PDF 測試書）
+│                             fixtures/：non_stop/（《不停》約 25 頁節錄，make_excerpt.py 產生）、make_test_pdfs.py 與兩種英文版面的 Typst 模板（產生 PDF 測試書）
 ├── experiments/              latex_ocr/（OCR 模型比較與報告）、layout_compare/（版面模型比較）
 ├── adept/                    Adobe 授權檔（device.xml、activation.xml、devicesalt），ACSM 領書用；不進版控
 └── process/{書名}/           一本書一個目錄（`_` 開頭的不是書，是備份之類）；整個目錄不進版控
